@@ -9,5 +9,5 @@ node_modules/
 jspm_packages/
 .npmrc
 .vscode/
-
+dist/
 
