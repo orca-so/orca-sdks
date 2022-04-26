@@ -7,11 +7,11 @@ import {
   u64,
 } from "@solana/spl-token";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { deserializeTokenAccount } from "./deserialize-token-account";
 import {
   createWSOLAccountInstructions,
   ResolvedTokenAddressInstruction,
 } from "../helpers/token-instructions";
+import { TokenUtil } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions-builder";
 
 /**
@@ -35,7 +35,9 @@ export async function resolveOrCreateATA(
     const ataAddress = await deriveATA(ownerAddress, tokenMint);
 
     const tokenAccountInfo = await connection.getAccountInfo(ataAddress);
-    const tokenAccount = deserializeTokenAccount(tokenAccountInfo?.data);
+    const tokenAccount = TokenUtil.deserializeTokenAccount(
+      tokenAccountInfo?.data
+    );
     if (tokenAccount) {
       return { address: ataAddress, ...EMPTY_INSTRUCTION };
     }
