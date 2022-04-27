@@ -2,10 +2,10 @@
   "name": "@orca-so/common-sdk",
   "version": "0.0.1",
   "description": "Common Typescript components across Orca",
-  "main": "index.ts",
   "repository": "https://github.com/orca-so/common-sdk",
   "author": "Orca Foundation",
   "license": "MIT",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
     "@project-serum/anchor": "0.20.1",
