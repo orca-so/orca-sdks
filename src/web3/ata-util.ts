@@ -6,7 +6,10 @@ import {
   u64,
 } from "@solana/spl-token";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { createWSOLAccountInstructions, ResolvedTokenAddressInstruction } from "../helpers/token-instructions";
+import {
+  createWSOLAccountInstructions,
+  ResolvedTokenAddressInstruction,
+} from "../helpers/token-instructions";
 import { TokenUtil } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
 
@@ -28,9 +31,12 @@ export async function resolveOrCreateATA(
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = new u64(0)
 ): Promise<ResolvedTokenAddressInstruction> {
-  const instructions = await resolveOrCreateATAs(connection, ownerAddress, [
-    { tokenMint, wrappedSolAmountIn },
-  ], getAccountRentExempt);
+  const instructions = await resolveOrCreateATAs(
+    connection,
+    ownerAddress,
+    [{ tokenMint, wrappedSolAmountIn }],
+    getAccountRentExempt
+  );
   return instructions[0]!;
 }
 
@@ -54,7 +60,7 @@ export async function resolveOrCreateATAs(
   connection: Connection,
   ownerAddress: PublicKey,
   requests: ResolvedTokenAddressRequest[],
-  getAccountRentExempt: () => Promise<number>,
+  getAccountRentExempt: () => Promise<number>
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -101,7 +107,11 @@ export async function resolveOrCreateATAs(
   if (nativeMints.length > 0) {
     const accountRentExempt = await getAccountRentExempt();
     const wrappedSolAmountIn = nativeMints[0]?.wrappedSolAmountIn || new u64(0);
-    instructionMap[NATIVE_MINT.toBase58()] = createWSOLAccountInstructions(ownerAddress, wrappedSolAmountIn, accountRentExempt);
+    instructionMap[NATIVE_MINT.toBase58()] = createWSOLAccountInstructions(
+      ownerAddress,
+      wrappedSolAmountIn,
+      accountRentExempt
+    );
   }
 
   // Preserve order of resolution

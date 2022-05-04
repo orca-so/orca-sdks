@@ -6,29 +6,27 @@ import { SendTxRequest } from "./types";
 enum TransactionStatus {
   CONFIRMED,
   EXPIRED,
-} 
+}
 
 export class TransactionProcessor {
   constructor(readonly provider: Provider, readonly commitment: Commitment = "confirmed") {}
 
-  public async signTransaction(
-    txRequest: SendTxRequest,
-  ): Promise<{
-    transaction: Transaction,
-    lastValidBlockHeight: number
-  }> { 
+  public async signTransaction(txRequest: SendTxRequest): Promise<{
+    transaction: Transaction;
+    lastValidBlockHeight: number;
+  }> {
     const { transactions, lastValidBlockHeight } = await this.signTransactions([txRequest]);
     return { transaction: transactions[0], lastValidBlockHeight };
   }
 
-  public async signTransactions(
-    txRequests: SendTxRequest[],
-  ): Promise<{
-    transactions: Transaction[],
-    lastValidBlockHeight: number
+  public async signTransactions(txRequests: SendTxRequest[]): Promise<{
+    transactions: Transaction[];
+    lastValidBlockHeight: number;
   }> {
     // TODO: Neither Solana nor Anchor currently correctly handle latest block height confirmation
-    const { blockhash, lastValidBlockHeight } = await this.provider.connection.getLatestBlockhash(this.commitment);
+    const { blockhash, lastValidBlockHeight } = await this.provider.connection.getLatestBlockhash(
+      this.commitment
+    );
     const feePayer = this.provider.wallet.publicKey;
     const pSignedTxs = txRequests.map((txRequest) => {
       return rewriteTransaction(txRequest, feePayer, blockhash);
@@ -40,7 +38,10 @@ export class TransactionProcessor {
     };
   }
 
-  public async sendTransaction(transaction: Transaction, lastValidBlockHeight: number): Promise<string> {
+  public async sendTransaction(
+    transaction: Transaction,
+    lastValidBlockHeight: number
+  ): Promise<string> {
     const execute = this.constructSendTransactions([transaction], lastValidBlockHeight);
     const txs = await execute();
     const ex = txs[0];
@@ -48,22 +49,29 @@ export class TransactionProcessor {
       return ex.value;
     } else {
       throw ex.reason;
-    } 
+    }
   }
 
   public constructSendTransactions(
     transactions: Transaction[],
     lastValidBlockHeight: number,
-    parallel: boolean = true,
+    parallel: boolean = true
   ): () => Promise<PromiseSettledResult<string>[]> {
     return async () => {
       let done = false;
       const isDone = () => done;
 
       // We separate the block expiry promise so that it can be shared for all the transactions
-      const expiry = checkBlockHeightExpiry(this.provider, lastValidBlockHeight, this.commitment, isDone);
-      const txs = transactions.map(tx => tx.serialize());
-      const txPromises = txs.map(async tx => confirmOrExpire(this.provider, tx, this.commitment, expiry));
+      const expiry = checkBlockHeightExpiry(
+        this.provider,
+        lastValidBlockHeight,
+        this.commitment,
+        isDone
+      );
+      const txs = transactions.map((tx) => tx.serialize());
+      const txPromises = txs.map(async (tx) =>
+        confirmOrExpire(this.provider, tx, this.commitment, expiry)
+      );
       let results: PromiseSettledResult<string>[] = [];
       if (parallel) {
         results = await Promise.allSettled(txPromises);
@@ -80,22 +88,23 @@ export class TransactionProcessor {
     };
   }
 
-  public async signAndConstructTransaction(
-    txRequest: SendTxRequest,
-  ): Promise<{
-    signedTx: Transaction,
-    execute: () => Promise<string>,
+  public async signAndConstructTransaction(txRequest: SendTxRequest): Promise<{
+    signedTx: Transaction;
+    execute: () => Promise<string>;
   }> {
     const { transaction, lastValidBlockHeight } = await this.signTransaction(txRequest);
-    return { signedTx: transaction, execute: async () => this.sendTransaction(transaction, lastValidBlockHeight) };
+    return {
+      signedTx: transaction,
+      execute: async () => this.sendTransaction(transaction, lastValidBlockHeight),
+    };
   }
 
   public async signAndConstructTransactions(
     txRequests: SendTxRequest[],
-    parallel: boolean = true,
+    parallel: boolean = true
   ): Promise<{
-    signedTxs: Transaction[],
-    execute: () => Promise<PromiseSettledResult<string>[]>,  
+    signedTxs: Transaction[];
+    execute: () => Promise<PromiseSettledResult<string>[]>;
   }> {
     const { transactions, lastValidBlockHeight } = await this.signTransactions(txRequests);
     const execute = this.constructSendTransactions(transactions, lastValidBlockHeight, parallel);
@@ -115,17 +124,21 @@ async function promiseToSettled<T>(promise: Promise<T>): Promise<PromiseSettledR
       status: "rejected",
       reason: err,
     };
-  } 
+  }
 }
 
 /**
  * Send a tx and confirm that it has reached `commitment` or expiration
  */
-async function confirmOrExpire(provider: Provider, tx: Buffer, commitment: Commitment, expiry: Promise<TransactionStatus>) {
-  const txId = await provider.connection.sendRawTransaction(
-    tx,
-    { preflightCommitment: commitment },
-  );
+async function confirmOrExpire(
+  provider: Provider,
+  tx: Buffer,
+  commitment: Commitment,
+  expiry: Promise<TransactionStatus>
+) {
+  const txId = await provider.connection.sendRawTransaction(tx, {
+    preflightCommitment: commitment,
+  });
 
   // Inlined to properly clear subscription id if expired before signature
   let subscriptionId;
@@ -140,7 +153,7 @@ async function confirmOrExpire(provider: Provider, tx: Buffer, commitment: Commi
           subscriptionId = undefined;
           resolve(TransactionStatus.CONFIRMED);
         },
-        commitment,
+        commitment
       );
     } catch (err) {
       reject(err);
@@ -149,10 +162,7 @@ async function confirmOrExpire(provider: Provider, tx: Buffer, commitment: Commi
 
   try {
     // Race confirm and expiry to see whether the transaction is confirmed or expires
-    const status = await Promise.race([
-      confirm,
-      expiry,
-    ]);
+    const status = await Promise.race([confirm, expiry]);
     if (status === TransactionStatus.CONFIRMED) {
       return txId;
     } else {
@@ -162,10 +172,15 @@ async function confirmOrExpire(provider: Provider, tx: Buffer, commitment: Commi
     if (subscriptionId) {
       provider.connection.removeSignatureListener(subscriptionId);
     }
-  } 
+  }
 }
 
-async function checkBlockHeightExpiry(provider: Provider, lastValidBlockHeight: number, commitment: Commitment, isDone: () => boolean) {
+async function checkBlockHeightExpiry(
+  provider: Provider,
+  lastValidBlockHeight: number,
+  commitment: Commitment,
+  isDone: () => boolean
+) {
   while (!isDone()) {
     let blockHeight = await provider.connection.getBlockHeight(commitment);
     if (blockHeight > lastValidBlockHeight) {
@@ -177,19 +192,15 @@ async function checkBlockHeightExpiry(provider: Provider, lastValidBlockHeight: 
   return TransactionStatus.EXPIRED;
 }
 
-function rewriteTransaction(
-  txRequest: SendTxRequest,
-  feePayer: PublicKey,
-  blockhash: string) {
+function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, blockhash: string) {
   const signers = txRequest.signers ?? [];
   const tx = txRequest.transaction;
   tx.feePayer = feePayer;
   tx.recentBlockhash = blockhash;
-  signers.filter((s): s is Signer => s !== undefined)
-    .forEach(keypair => tx.partialSign(keypair));
+  signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => tx.partialSign(keypair));
   return tx;
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

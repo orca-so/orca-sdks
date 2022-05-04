@@ -1,10 +1,4 @@
-import {
-  AccountLayout,
-  NATIVE_MINT,
-  Token,
-  TOKEN_PROGRAM_ID,
-  u64,
-} from "@solana/spl-token";
+import { AccountLayout, NATIVE_MINT, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { Instruction } from "../web3/transactions/types";
 

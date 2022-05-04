@@ -3,7 +3,7 @@ import { Transaction, Signer, TransactionInstruction } from "@solana/web3.js";
 /**
  * @category Transactions Util
  */
- export const EMPTY_INSTRUCTION: Instruction = {
+export const EMPTY_INSTRUCTION: Instruction = {
   instructions: [],
   cleanupInstructions: [],
   signers: [],
@@ -30,6 +30,6 @@ export type TransactionPayload = {
  * @category Transactions Util
  */
 export type SendTxRequest = {
-  transaction: Transaction,
-  signers?: Array<Signer | undefined>,
-}
+  transaction: Transaction;
+  signers?: Array<Signer | undefined>;
+};

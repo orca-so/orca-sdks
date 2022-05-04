@@ -6,7 +6,7 @@ import { Instruction, TransactionPayload } from "./types";
 /**
  * @category Transactions Util
  */
- export type TransformableInstruction = Instruction & {
+export type TransformableInstruction = Instruction & {
   toTx: () => TransactionBuilder;
 };
 
@@ -17,11 +17,13 @@ export type BuildOptions = {
   // If false, creates a transaction without a blockhash
   // If true, creates a transaction by requesting latestBlockhash
   // If object, creates a transaction by using object
-  latestBlockhash: boolean | {
-    blockhash: string;
-    lastValidBlockHeight: number;
-  };
-}
+  latestBlockhash:
+    | boolean
+    | {
+        blockhash: string;
+        lastValidBlockHeight: number;
+      };
+};
 
 /**
  * @category Transactions Util
@@ -64,8 +66,7 @@ export class TransactionBuilder {
     this.instructions.forEach((curr) => {
       instructions = instructions.concat(curr.instructions);
       // Cleanup instructions should execute in reverse order
-      cleanupInstructions =
-        curr.cleanupInstructions.concat(cleanupInstructions);
+      cleanupInstructions = curr.cleanupInstructions.concat(cleanupInstructions);
       signers = signers.concat(curr.signers);
     });
 
@@ -90,9 +91,8 @@ export class TransactionBuilder {
     const { latestBlockhash } = options;
     let recentBlockhash;
     if (latestBlockhash === true) {
-      recentBlockhash = (
-        await this.provider.connection.getLatestBlockhash("singleGossip")
-      ).blockhash;
+      recentBlockhash = (await this.provider.connection.getLatestBlockhash("singleGossip"))
+        .blockhash;
     } else if (latestBlockhash !== false && latestBlockhash.blockhash) {
       recentBlockhash = latestBlockhash.blockhash;
     }
