@@ -6,7 +6,7 @@ import {
   u64,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { Instruction } from "../web3/transactions-builder";
+import { Instruction } from "../web3/transactions/types";
 
 export type ResolvedTokenAddressInstruction = {
   address: PublicKey;
