@@ -5,9 +5,7 @@ import { PublicKey } from "@solana/web3.js";
  * @category Util
  */
 export class TokenUtil {
-  public static deserializeTokenAccount = (
-    data: Buffer | undefined
-  ): AccountInfo | null => {
+  public static deserializeTokenAccount = (data: Buffer | undefined): AccountInfo | null => {
     if (!data) {
       return null;
     }
