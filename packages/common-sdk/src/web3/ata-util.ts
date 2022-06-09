@@ -31,7 +31,7 @@ export async function resolveOrCreateATA(
   tokenMint: PublicKey,
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = new u64(0),
-  payer?: PublicKey
+  payer = ownerAddress
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
@@ -65,7 +65,7 @@ export async function resolveOrCreateATAs(
   ownerAddress: PublicKey,
   requests: ResolvedTokenAddressRequest[],
   getAccountRentExempt: () => Promise<number>,
-  payer?: PublicKey
+  payer = ownerAddress
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
