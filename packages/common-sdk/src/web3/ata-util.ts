@@ -69,7 +69,6 @@ export async function resolveOrCreateATAs(
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
-  const payerAddr = payer ? payer : ownerAddress;
 
   if (nativeMints.length > 1) {
     throw new Error("Cannot resolve multiple WSolAccounts");
@@ -96,7 +95,7 @@ export async function resolveOrCreateATAs(
           nonNativeMints[index]!.tokenMint,
           ataAddress,
           ownerAddress,
-          payerAddr
+          payer
         );
 
         resolvedInstruction = {
