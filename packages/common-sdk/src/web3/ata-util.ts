@@ -22,6 +22,7 @@ import { EMPTY_INSTRUCTION } from "./transactions/types";
  * @param ownerAddress The user's public key
  * @param tokenMint Token mint address
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
+ * @param payer Payer that would pay the rent for the creation of the ATAs
  * @returns
  */
 export async function resolveOrCreateATA(
@@ -29,13 +30,15 @@ export async function resolveOrCreateATA(
   ownerAddress: PublicKey,
   tokenMint: PublicKey,
   getAccountRentExempt: () => Promise<number>,
-  wrappedSolAmountIn = new u64(0)
+  wrappedSolAmountIn = new u64(0),
+  payer = ownerAddress
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
     ownerAddress,
     [{ tokenMint, wrappedSolAmountIn }],
-    getAccountRentExempt
+    getAccountRentExempt,
+    payer
   );
   return instructions[0]!;
 }
@@ -54,13 +57,15 @@ type ResolvedTokenAddressRequest = {
  * @param ownerAddress The user's public key
  * @param tokenMint Token mint address
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
+ * @param payer Payer that would pay the rent for the creation of the ATAs
  * @returns
  */
 export async function resolveOrCreateATAs(
   connection: Connection,
   ownerAddress: PublicKey,
   requests: ResolvedTokenAddressRequest[],
-  getAccountRentExempt: () => Promise<number>
+  getAccountRentExempt: () => Promise<number>,
+  payer = ownerAddress
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -90,7 +95,7 @@ export async function resolveOrCreateATAs(
           nonNativeMints[index]!.tokenMint,
           ataAddress,
           ownerAddress,
-          ownerAddress
+          payer
         );
 
         resolvedInstruction = {
