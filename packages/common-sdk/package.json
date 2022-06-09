@@ -2,7 +2,7 @@
   "name": "@orca-so/common-sdk",
   "version": "0.0.6",
   "description": "Common Typescript components across Orca",
-  "repository": "https://github.com/orca-so/common-sdk",
+  "repository": "https://github.com/orca-so/orca-sdks",
   "author": "Orca Foundation",
   "license": "MIT",
   "main": "dist/index.js",
