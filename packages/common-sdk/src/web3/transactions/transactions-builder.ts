@@ -1,5 +1,5 @@
 import { Provider } from "@project-serum/anchor";
-import { Transaction, Signer, TransactionInstruction } from "@solana/web3.js";
+import { Transaction, Signer, TransactionInstruction, ConfirmOptions } from "@solana/web3.js";
 import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
 
@@ -122,5 +122,19 @@ export class TransactionBuilder {
     const tp = new TransactionProcessor(this.provider);
     const { execute } = await tp.signAndConstructTransaction(tx);
     return execute();
+  }
+
+  /**
+   * Send multiple transactions at once.
+   * @deprecated This method is here for legacy reasons and we prefer the use of TransactionProcessor
+   */
+  static async sendAll(provider: Provider, txns: TransactionBuilder[], opts?: ConfirmOptions) {
+    const txRequest = await Promise.all(
+      txns.map(async (txBuilder) => {
+        const { transaction, signers } = await txBuilder.build();
+        return { tx: transaction, signers };
+      })
+    );
+    return await provider.sendAll(txRequest, opts);
   }
 }
