@@ -1,40 +1,23 @@
-import { Provider } from "@project-serum/anchor";
-import { Transaction, Signer, TransactionInstruction, ConfirmOptions } from "@solana/web3.js";
+import { AnchorProvider } from "@project-serum/anchor";
+import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
+import {
+  Connection,
+  Transaction,
+  Signer,
+  TransactionInstruction,
+  ConfirmOptions,
+} from "@solana/web3.js";
 import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
 
 /**
  * @category Transactions Util
  */
-export type TransformableInstruction = Instruction & {
-  toTx: () => TransactionBuilder;
-};
-
-/**
- * @category Transactions Util
- */
-export type BuildOptions = {
-  // If false, creates a transaction without a blockhash
-  // If true, creates a transaction by requesting latestBlockhash
-  // If object, creates a transaction by using object
-  latestBlockhash:
-    | boolean
-    | {
-        blockhash: string;
-        lastValidBlockHeight: number;
-      };
-};
-
-/**
- * @category Transactions Util
- */
 export class TransactionBuilder {
-  private provider: Provider;
   private instructions: Instruction[];
   private signers: Signer[];
 
-  constructor(provider: Provider) {
-    this.provider = provider;
+  constructor(readonly connection: Connection, readonly wallet: Wallet) {
     this.instructions = [];
     this.signers = [];
   }
@@ -86,26 +69,18 @@ export class TransactionBuilder {
    * Constructs a transaction payload with the gathered instructions
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
-  // TODO: Anchor 0.24+ removes .wallet from Provider
-  async build(options: BuildOptions = { latestBlockhash: false }): Promise<TransactionPayload> {
-    const { latestBlockhash } = options;
-    let recentBlockhash;
-    if (latestBlockhash === true) {
-      recentBlockhash = (await this.provider.connection.getLatestBlockhash("singleGossip"))
-        .blockhash;
-    } else if (latestBlockhash !== false && latestBlockhash.blockhash) {
-      recentBlockhash = latestBlockhash.blockhash;
-    }
+  async build(): Promise<TransactionPayload> {
+    let recentBlockhash = await this.connection.getLatestBlockhash("singleGossip");
 
     const transaction = new Transaction({
-      recentBlockhash,
-      feePayer: this.provider.wallet.publicKey,
+      ...recentBlockhash,
+      feePayer: this.wallet.publicKey,
     });
 
     const ix = this.compressIx(true);
 
     transaction.add(...ix.instructions);
-    transaction.feePayer = this.provider.wallet.publicKey;
+    transaction.feePayer = this.wallet.publicKey;
 
     return {
       transaction: transaction,
@@ -119,7 +94,7 @@ export class TransactionBuilder {
    */
   async buildAndExecute(): Promise<string> {
     const tx = await this.build();
-    const tp = new TransactionProcessor(this.provider);
+    const tp = new TransactionProcessor(this.connection, this.wallet);
     const { execute } = await tp.signAndConstructTransaction(tx);
     return execute();
   }
@@ -128,7 +103,11 @@ export class TransactionBuilder {
    * Send multiple transactions at once.
    * @deprecated This method is here for legacy reasons and we prefer the use of TransactionProcessor
    */
-  static async sendAll(provider: Provider, txns: TransactionBuilder[], opts?: ConfirmOptions) {
+  static async sendAll(
+    provider: AnchorProvider,
+    txns: TransactionBuilder[],
+    opts?: ConfirmOptions
+  ) {
     const txRequest = await Promise.all(
       txns.map(async (txBuilder) => {
         const { transaction, signers } = await txBuilder.build();

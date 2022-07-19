@@ -1,5 +1,5 @@
-import { Provider } from "@project-serum/anchor";
-import { Commitment, PublicKey, Signer, Transaction } from "@solana/web3.js";
+import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
+import { Commitment, PublicKey, Signer, Transaction, Connection } from "@solana/web3.js";
 import { SendTxRequest } from "./types";
 
 // Only used internally
@@ -9,7 +9,11 @@ enum TransactionStatus {
 }
 
 export class TransactionProcessor {
-  constructor(readonly provider: Provider, readonly commitment: Commitment = "confirmed") {}
+  constructor(
+    readonly connection: Connection,
+    readonly wallet: Wallet,
+    readonly commitment: Commitment = "confirmed"
+  ) {}
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction;
@@ -24,14 +28,14 @@ export class TransactionProcessor {
     lastValidBlockHeight: number;
   }> {
     // TODO: Neither Solana nor Anchor currently correctly handle latest block height confirmation
-    const { blockhash, lastValidBlockHeight } = await this.provider.connection.getLatestBlockhash(
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash(
       this.commitment
     );
-    const feePayer = this.provider.wallet.publicKey;
+    const feePayer = this.wallet.publicKey;
     const pSignedTxs = txRequests.map((txRequest) => {
       return rewriteTransaction(txRequest, feePayer, blockhash);
     });
-    const transactions = await this.provider.wallet.signAllTransactions(pSignedTxs);
+    const transactions = await this.wallet.signAllTransactions(pSignedTxs);
     return {
       transactions,
       lastValidBlockHeight,
@@ -63,14 +67,14 @@ export class TransactionProcessor {
 
       // We separate the block expiry promise so that it can be shared for all the transactions
       const expiry = checkBlockHeightExpiry(
-        this.provider,
+        this.connection,
         lastValidBlockHeight,
         this.commitment,
         isDone
       );
       const txs = transactions.map((tx) => tx.serialize());
       const txPromises = txs.map(async (tx) =>
-        confirmOrExpire(this.provider, tx, this.commitment, expiry)
+        confirmOrExpire(this.connection, tx, this.commitment, expiry)
       );
       let results: PromiseSettledResult<string>[] = [];
       if (parallel) {
@@ -131,12 +135,12 @@ async function promiseToSettled<T>(promise: Promise<T>): Promise<PromiseSettledR
  * Send a tx and confirm that it has reached `commitment` or expiration
  */
 async function confirmOrExpire(
-  provider: Provider,
+  connection: Connection,
   tx: Buffer,
   commitment: Commitment,
   expiry: Promise<TransactionStatus>
 ) {
-  const txId = await provider.connection.sendRawTransaction(tx, {
+  const txId = await connection.sendRawTransaction(tx, {
     preflightCommitment: commitment,
   });
 
@@ -147,7 +151,7 @@ async function confirmOrExpire(
   // signed with the `commitment` level
   const confirm = new Promise((resolve, reject) => {
     try {
-      subscriptionId = provider.connection.onSignature(
+      subscriptionId = connection.onSignature(
         txId,
         () => {
           subscriptionId = undefined;
@@ -170,19 +174,19 @@ async function confirmOrExpire(
     }
   } finally {
     if (subscriptionId) {
-      provider.connection.removeSignatureListener(subscriptionId);
+      connection.removeSignatureListener(subscriptionId);
     }
   }
 }
 
 async function checkBlockHeightExpiry(
-  provider: Provider,
+  connection: Connection,
   lastValidBlockHeight: number,
   commitment: Commitment,
   isDone: () => boolean
 ) {
   while (!isDone()) {
-    let blockHeight = await provider.connection.getBlockHeight(commitment);
+    let blockHeight = await connection.getBlockHeight(commitment);
     if (blockHeight > lastValidBlockHeight) {
       break;
     }
