@@ -1,14 +1,26 @@
 import { AnchorProvider } from "@project-serum/anchor";
 import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
 import {
-  Connection,
-  Transaction,
-  Signer,
-  TransactionInstruction,
   ConfirmOptions,
+  Connection,
+  Signer,
+  Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
+
+/**
+ * @category Transactions Util
+ */
+export type BuildOptions = {
+  latestBlockhash:
+    | {
+        blockhash: string;
+        lastValidBlockHeight: number;
+      }
+    | undefined;
+};
 
 /**
  * @category Transactions Util
@@ -69,8 +81,11 @@ export class TransactionBuilder {
    * Constructs a transaction payload with the gathered instructions
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
-  async build(): Promise<TransactionPayload> {
-    let recentBlockhash = await this.connection.getLatestBlockhash("singleGossip");
+  async build(options: BuildOptions = { latestBlockhash: undefined }): Promise<TransactionPayload> {
+    const { latestBlockhash } = options;
+    let recentBlockhash = !latestBlockhash
+      ? await this.connection.getLatestBlockhash("singleGossip")
+      : latestBlockhash;
 
     const transaction = new Transaction({
       ...recentBlockhash,
