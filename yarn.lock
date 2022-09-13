@@ -595,6 +595,15 @@
     "@solana/spl-token" "^0.1.8"
     decimal.js "^10.3.1"
 
+"@orca-so/common-sdk@^0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@orca-so/common-sdk/-/common-sdk-0.0.7.tgz#16f77a68beded3eda227f22be0d8b1f85fe7ebf3"
+  integrity sha512-DF2wR39dHPKnOh8zBlVy/uWA58HQ6Vgi6fOOY1FJCgZTuR8/k65ALC3z632iCJh0GP3Upmcmjqn3OeBiEZr6tA==
+  dependencies:
+    "@project-serum/anchor" "0.20.1"
+    "@solana/spl-token" "0.1.8"
+    decimal.js "^10.3.1"
+
 "@orca-so/whirlpools-sdk@^0.1.4":
   version "0.1.7"
   resolved "https://registry.yarnpkg.com/@orca-so/whirlpools-sdk/-/whirlpools-sdk-0.1.7.tgz#c03fd6acd6df41c9ea232b903f194650a57414ff"
@@ -689,7 +698,7 @@
     buffer-layout "^1.2.0"
     dotenv "10.0.0"
 
-"@solana/web3.js@1.43.1", "@solana/web3.js@^1.17.0", "@solana/web3.js@^1.21.0", "@solana/web3.js@^1.31.0", "@solana/web3.js@^1.36.0":
+"@solana/web3.js@^1.17.0", "@solana/web3.js@^1.21.0", "@solana/web3.js@^1.31.0", "@solana/web3.js@^1.36.0":
   version "1.43.1"
   resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.43.1.tgz#f0cfffe7feb798563440f9ca0b0e9ba099e13967"
   integrity sha512-s6TRcWz3rYvxM8gg1eQmUAUJQeoXIFMG9MbSWb/uRrLU0q7Xd9Ic1PNbACp1n1O0wyCogTAyFWXXPK476aIVSg==
@@ -753,6 +762,13 @@
   version "4.11.6"
   resolved "https://registry.yarnpkg.com/@types/bn.js/-/bn.js-4.11.6.tgz#c306c70d9358aaea33cd4eda092a742b9505967c"
   integrity sha512-pqr857jrp2kPuO9uRjZ3PwnJTjoQy+fcdxvBTvHm6dkmEL9q+hDD/2j/0ELOBPtPnS8LjCX0gI9nbl8lVkadpg==
+  dependencies:
+    "@types/node" "*"
+
+"@types/bn.js@~5.1.0":
+  version "5.1.1"
+  resolved "https://registry.yarnpkg.com/@types/bn.js/-/bn.js-5.1.1.tgz#b51e1b55920a4ca26e9285ff79936bbdec910682"
+  integrity sha512-qNrYbZqMx0uJAfKnKclPh+dTwK33KfLHYqtyODwd5HnXOjnkhc4qgn3BrK6RWyGZm5+sIFE7Q7Vz6QQtJB7w7g==
   dependencies:
     "@types/node" "*"
 
