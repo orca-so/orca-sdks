@@ -47,14 +47,24 @@ export class TokenUtil {
   };
 
   /**
-   * Creates a set of instructions to send a token to another wallet.
-   * This instruction set will check and create the address of ATAs of the receiving wallet.
-   * Will automatically handle SOL tokens as well.
+   * Create an ix to send a spl-token to another wallet.
+   * This function will handle the associated token accounts internally.
+   * SOL is wrapped, sent as a spl-token and cleaned up after the transfer.
+   *
+   * @param connection - Connection object
+   * @param sourceWallet - PublicKey for the sender's wallet
+   * @param destinationWallet - PublicKey for the receiver's wallet
+   * @param tokenMint - Mint for the token that is being sent.
+   * @param tokenDecimals - Decimal for the token that is being sent.
+   * @param amount - Amount of token to send
+   * @param getAccountRentExempt - Fn to fetch the account rent exempt value
+   * @param payer - PublicKey for the payer that would fund the possibly new token-accounts. (must sign the txn)
+   * @returns
    */
   static async createSendTokensToWalletInstruction(
     connection: Connection,
     sourceWallet: PublicKey,
-    destionationWallet: PublicKey,
+    destinationWallet: PublicKey,
     tokenMint: PublicKey,
     tokenDecimals: number,
     amount: u64,
@@ -66,7 +76,7 @@ export class TokenUtil {
     const sourceTokenAccount = await deriveATA(sourceWallet, tokenMint);
     const { address: destinationTokenAccount, ...destionationAtaIx } = await resolveOrCreateATA(
       connection,
-      destionationWallet,
+      destinationWallet,
       tokenMint,
       getAccountRentExempt,
       amount, //
