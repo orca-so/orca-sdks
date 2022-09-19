@@ -1,5 +1,5 @@
-import { AccountInfo, AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { AccountInfo, AccountLayout, NATIVE_MINT, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import invariant from "tiny-invariant";
 import { ZERO } from "../math";
 import { deriveATA, Instruction, resolveOrCreateATA } from "../web3";
@@ -73,13 +73,27 @@ export class TokenUtil {
   ): Promise<Instruction> {
     invariant(!amount.eq(ZERO), "SendToken transaction must send more than 0 tokens.");
 
+    // Specifically handle SOL, which is not a spl-token.
+    if (tokenMint === NATIVE_MINT) {
+      const sendSolTxn = SystemProgram.transfer({
+        fromPubkey: sourceWallet,
+        toPubkey: destinationWallet,
+        lamports: amount.toNumber() // Capped by 2^52
+      })
+      return {
+        instructions: [sendSolTxn],
+        cleanupInstructions: [],
+        signers: []
+      }
+    }
+
     const sourceTokenAccount = await deriveATA(sourceWallet, tokenMint);
-    const { address: destinationTokenAccount, ...destionationAtaIx } = await resolveOrCreateATA(
+    const { address: destinationTokenAccount, ...destinationAtaIx } = await resolveOrCreateATA(
       connection,
       destinationWallet,
       tokenMint,
       getAccountRentExempt,
-      amount, //
+      amount,
       payer
     );
 
@@ -95,9 +109,9 @@ export class TokenUtil {
     );
 
     return {
-      instructions: destionationAtaIx.instructions.concat(transferIx),
-      cleanupInstructions: destionationAtaIx.cleanupInstructions,
-      signers: destionationAtaIx.signers,
+      instructions: destinationAtaIx.instructions.concat(transferIx),
+      cleanupInstructions: destinationAtaIx.cleanupInstructions,
+      signers: destinationAtaIx.signers,
     };
   }
 }
