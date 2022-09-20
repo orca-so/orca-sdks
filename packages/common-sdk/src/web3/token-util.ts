@@ -74,7 +74,7 @@ export class TokenUtil {
     invariant(!amount.eq(ZERO), "SendToken transaction must send more than 0 tokens.");
 
     // Specifically handle SOL, which is not a spl-token.
-    if (tokenMint === NATIVE_MINT) {
+    if (tokenMint.equals(NATIVE_MINT)) {
       const sendSolTxn = SystemProgram.transfer({
         fromPubkey: sourceWallet,
         toPubkey: destinationWallet,
