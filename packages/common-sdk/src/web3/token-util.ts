@@ -47,9 +47,9 @@ export class TokenUtil {
   };
 
   /**
-   * Create an ix to send a spl-token to another wallet.
-   * This function will handle the associated token accounts internally.
-   * SOL is wrapped, sent as a spl-token and cleaned up after the transfer.
+   * Create an ix to send a spl-token / native-mint to another wallet.
+   * This function will handle the associated token accounts internally for spl-token.
+   * SOL is sent directly to the user's wallet.
    *
    * @param connection - Connection object
    * @param sourceWallet - PublicKey for the sender's wallet
@@ -78,7 +78,7 @@ export class TokenUtil {
       const sendSolTxn = SystemProgram.transfer({
         fromPubkey: sourceWallet,
         toPubkey: destinationWallet,
-        lamports: amount.toNumber() // Capped by 2^52
+        lamports: BigInt(amount.toString())
       })
       return {
         instructions: [sendSolTxn],
