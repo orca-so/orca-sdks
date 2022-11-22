@@ -8,6 +8,11 @@ import { deriveATA, Instruction, resolveOrCreateATA } from "../web3";
  * @category Util
  */
 export class TokenUtil {
+
+  public static isNativeMint(mint: PublicKey) {
+    return mint.equals(NATIVE_MINT);
+  }
+
   public static deserializeTokenAccount = (data: Buffer | undefined): AccountInfo | null => {
     if (!data) {
       return null;
