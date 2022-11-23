@@ -1,5 +1,8 @@
 {
   "private": true,
+  "resolutions": {
+    "decimal.js": "^10.4.0"
+  },
   "workspaces": [
     "packages/*"
   ]
