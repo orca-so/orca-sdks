@@ -5,7 +5,7 @@ import {
   Connection,
   Signer,
   Transaction,
-  TransactionInstruction,
+  TransactionInstruction
 } from "@solana/web3.js";
 import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
@@ -15,11 +15,11 @@ import { Instruction, TransactionPayload } from "./types";
  */
 export type BuildOptions = {
   latestBlockhash:
-    | {
-        blockhash: string;
-        lastValidBlockHeight: number;
-      }
-    | undefined;
+  | {
+    blockhash: string;
+    lastValidBlockHeight: number;
+  }
+  | undefined;
 };
 
 /**
@@ -34,8 +34,43 @@ export class TransactionBuilder {
     this.signers = [];
   }
 
+  /**
+   * Append an instruction into this builder.
+   * @param instruction - An Instruction
+   * @returns Returns this transaction builder.
+   */
   addInstruction(instruction: Instruction): TransactionBuilder {
     this.instructions.push(instruction);
+    return this;
+  }
+
+  /**
+   * Append a list of instructions into this builder.
+   * @param instructions - A list of Instructions
+   * @returns Returns this transaction builder.
+   */
+  addInstructions(instructions: Instruction[]): TransactionBuilder {
+    this.instructions = this.instructions.concat(instructions);
+    return this;
+  }
+
+  /**
+   * Prepend a list of instructions into this builder.
+   * @param instruction - An Instruction
+   * @returns Returns this transaction builder.
+   */
+  prependInstruction(instruction: Instruction): TransactionBuilder {
+    this.instructions.unshift(instruction);
+    return this;
+  }
+
+  /**
+   * Prepend a list of instructions into this builder.
+   * @param instructions - A list of Instructions
+   * @returns Returns this transaction builder.
+   */
+  prependInstructions(instructions: Instruction[]): TransactionBuilder {
+    this.instructions = instructions.concat(this.instructions);
     return this;
   }
 
@@ -75,6 +110,19 @@ export class TransactionBuilder {
       cleanupInstructions: [...cleanupInstructions],
       signers,
     };
+  }
+
+  /**
+   * Returns the size of the current transaction in bytes.
+   * @returns the size of the current transaction in bytes.
+   * @throws error if transaction is over maximum package size.
+   */
+  async txnSize() {
+    if (this.isEmpty()) {
+      return 0;
+    }
+    const request = await this.build();
+    return request.transaction.serialize({ requireAllSignatures: false }).length;
   }
 
   /**
