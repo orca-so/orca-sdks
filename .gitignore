@@ -10,4 +10,4 @@ jspm_packages/
 .npmrc
 .vscode/
 dist/
-
+.DS_store
