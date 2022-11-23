@@ -113,7 +113,7 @@ export class TransactionBuilder {
   }
 
   /**
-   * Returns the size of the current transacftion in bytes.
+   * Returns the size of the current transaction in bytes.
    * @returns the size of the current transaction in bytes.
    * @throws error if transaction is over maximum package size.
    */
