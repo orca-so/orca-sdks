@@ -117,11 +117,11 @@ export class TransactionBuilder {
    * @returns the size of the current transaction in bytes.
    * @throws error if transaction is over maximum package size.
    */
-  async txnSize() {
+  async txnSize(options: BuildOptions = { latestBlockhash: undefined }) {
     if (this.isEmpty()) {
       return 0;
     }
-    const request = await this.build();
+    const request = await this.build(options);
     return request.transaction.serialize({ requireAllSignatures: false }).length;
   }
 
