@@ -1,10 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
 
 export class PublicKeyUtils {
-
   /**
    * Check whether a string is a Base58 string.
-   * @param value 
+   * @param value
    * @returns Whether the string is a Base58 string.
    */
   public static isBase58(value: string) {
