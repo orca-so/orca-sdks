@@ -2,6 +2,11 @@ import { PublicKey } from "@solana/web3.js";
 
 export class PublicKeyUtils {
 
+  /**
+   * Check whether a string is a Base58 string.
+   * @param value 
+   * @returns Whether the string is a Base58 string.
+   */
   public static isBase58(value: string) {
     return /^[A-HJ-NP-Za-km-z1-9]*$/.test(value);
   }
