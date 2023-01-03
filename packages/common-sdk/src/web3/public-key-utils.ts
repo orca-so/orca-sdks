@@ -1,6 +1,11 @@
 import { PublicKey } from "@solana/web3.js";
 
 export class PublicKeyUtils {
+
+  public static isBase58(value: string) {
+    return /^[A-HJ-NP-Za-km-z1-9]*$/.test(value);
+  }
+
   /**
    * Order a list of public keys by bytes.
    * @param keys a list of public keys to order
