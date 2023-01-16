@@ -5,7 +5,12 @@ import {
   TOKEN_PROGRAM_ID,
   u64,
 } from "@solana/spl-token";
-import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  TransactionInstruction,
+  SystemProgram,
+} from "@solana/web3.js";
 import {
   createWSOLAccountInstructions,
   ResolvedTokenAddressInstruction,
@@ -23,6 +28,7 @@ import { EMPTY_INSTRUCTION } from "./transactions/types";
  * @param tokenMint Token mint address
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
  * @param payer Payer that would pay the rent for the creation of the ATAs
+ * @param modeIdempotent Optional. Use CreateIdempotent instruction instead of Create instruction
  * @returns
  */
 export async function resolveOrCreateATA(
@@ -31,14 +37,16 @@ export async function resolveOrCreateATA(
   tokenMint: PublicKey,
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = new u64(0),
-  payer = ownerAddress
+  payer = ownerAddress,
+  modeIdempotent: boolean = false,
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
     ownerAddress,
     [{ tokenMint, wrappedSolAmountIn }],
     getAccountRentExempt,
-    payer
+    payer,
+    modeIdempotent,
   );
   return instructions[0]!;
 }
@@ -58,6 +66,7 @@ type ResolvedTokenAddressRequest = {
  * @param tokenMint Token mint address
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
  * @param payer Payer that would pay the rent for the creation of the ATAs
+ * @param modeIdempotent Optional. Use CreateIdempotent instruction instead of Create instruction
  * @returns
  */
 export async function resolveOrCreateATAs(
@@ -65,7 +74,8 @@ export async function resolveOrCreateATAs(
   ownerAddress: PublicKey,
   requests: ResolvedTokenAddressRequest[],
   getAccountRentExempt: () => Promise<number>,
-  payer = ownerAddress
+  payer = ownerAddress,
+  modeIdempotent: boolean = false,
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -89,13 +99,14 @@ export async function resolveOrCreateATAs(
       if (tokenAccount) {
         resolvedInstruction = { address: ataAddress, ...EMPTY_INSTRUCTION };
       } else {
-        const createAtaInstruction = Token.createAssociatedTokenAccountInstruction(
+        const createAtaInstruction = createAssociatedTokenAccountInstruction(
           ASSOCIATED_TOKEN_PROGRAM_ID,
           TOKEN_PROGRAM_ID,
           nonNativeMints[index]!.tokenMint,
           ataAddress,
           ownerAddress,
-          payer
+          payer,
+          modeIdempotent,
         );
 
         resolvedInstruction = {
@@ -130,4 +141,44 @@ export async function deriveATA(ownerAddress: PublicKey, tokenMint: PublicKey): 
     tokenMint,
     ownerAddress
   );
+}
+
+function createAssociatedTokenAccountInstruction(
+  associatedTokenProgramId: PublicKey,
+  tokenProgramId: PublicKey,
+  mint: PublicKey,
+  associatedAccount: PublicKey,
+  owner: PublicKey,
+  payer: PublicKey,
+  modeIdempotent: boolean,
+): TransactionInstruction {
+  if (!modeIdempotent) {
+    return Token.createAssociatedTokenAccountInstruction(
+      associatedTokenProgramId,
+      tokenProgramId,
+      mint,
+      associatedAccount,
+      owner,
+      payer,
+    );
+  }
+
+  // create CreateIdempotent instruction
+  // spl-token v0.1.8 doesn't have a method for CreateIdempotent.
+  // https://github.com/solana-labs/solana-program-library/blob/master/associated-token-account/program/src/instruction.rs#L26
+  const keys = [
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: associatedAccount, isSigner: false, isWritable: true },
+    { pubkey: owner, isSigner: false, isWritable: false },
+    { pubkey: mint, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+  ];
+  const instructionData = Buffer.from([1]);
+
+  return new TransactionInstruction({
+    keys,
+    programId: associatedTokenProgramId,
+    data: instructionData,
+  });
 }
