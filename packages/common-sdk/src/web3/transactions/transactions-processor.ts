@@ -63,7 +63,6 @@ export class TransactionProcessor {
   ): () => Promise<PromiseSettledResult<string>[]> {
     const executeTx = async (tx: Transaction) => {
       const rawTxs = tx.serialize();
-      console.log("sending", rawTxs.toString("hex"));
       return this.connection.sendRawTransaction(rawTxs, {
         preflightCommitment: this.commitment,
       });
