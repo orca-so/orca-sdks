@@ -61,31 +61,44 @@ export class TransactionProcessor {
     blockhash: string,
     parallel: boolean = true
   ): () => Promise<PromiseSettledResult<string>[]> {
+    const executeTx = async (tx: Transaction) => {
+      const rawTxs = tx.serialize();
+      console.log("sending", rawTxs.toString("hex"));
+      return this.connection.sendRawTransaction(rawTxs, {
+        preflightCommitment: this.commitment,
+      });
+    };
+
+    const confirmTx = async (txId: string) => {
+      const result = await this.connection.confirmTransaction({
+        signature: txId,
+        lastValidBlockHeight: lastValidBlockHeight,
+        blockhash,
+      });
+
+      if (result.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(result.value)}`);
+      }
+    };
+
     return async () => {
-      const txIds = await Promise.all(
-        transactions.map((tx) => {
-          const rawTxs = tx.serialize();
-          return this.connection.sendRawTransaction(rawTxs, {
-            preflightCommitment: this.commitment,
-          });
-        })
-      );
-
-      return Promise.allSettled(
-        txIds.map(async (txId) => {
-          const result = await this.connection.confirmTransaction({
-            signature: txId,
-            lastValidBlockHeight: lastValidBlockHeight,
-            blockhash,
-          });
-
-          if (result.value.err) {
-            throw new Error(`Transaction failed: ${JSON.stringify(result.value)}`);
-          }
-
+      if (parallel) {
+        const results = transactions.map(async (tx) => {
+          const txId = await executeTx(tx);
+          await confirmTx(txId);
           return txId;
-        })
-      );
+        });
+
+        return Promise.allSettled(results);
+      } else {
+        const results = [];
+        for (const tx of transactions) {
+          const txId = await executeTx(tx);
+          await confirmTx(txId);
+          results.push(txId);
+        }
+        return Promise.allSettled(results);
+      }
     };
   }
 
