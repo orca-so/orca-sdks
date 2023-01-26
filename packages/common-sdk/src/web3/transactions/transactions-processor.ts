@@ -2,12 +2,6 @@ import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
 import { Commitment, PublicKey, Signer, Transaction, Connection } from "@solana/web3.js";
 import { SendTxRequest } from "./types";
 
-// Only used internally
-enum TransactionStatus {
-  CONFIRMED,
-  EXPIRED,
-}
-
 export class TransactionProcessor {
   constructor(
     readonly connection: Connection,
@@ -18,16 +12,19 @@ export class TransactionProcessor {
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction;
     lastValidBlockHeight: number;
+    blockhash: string;
   }> {
-    const { transactions, lastValidBlockHeight } = await this.signTransactions([txRequest]);
-    return { transaction: transactions[0], lastValidBlockHeight };
+    const { transactions, lastValidBlockHeight, blockhash } = await this.signTransactions([
+      txRequest,
+    ]);
+    return { transaction: transactions[0], lastValidBlockHeight, blockhash };
   }
 
   public async signTransactions(txRequests: SendTxRequest[]): Promise<{
     transactions: Transaction[];
     lastValidBlockHeight: number;
+    blockhash: string;
   }> {
-    // TODO: Neither Solana nor Anchor currently correctly handle latest block height confirmation
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash(
       this.commitment
     );
@@ -39,14 +36,16 @@ export class TransactionProcessor {
     return {
       transactions,
       lastValidBlockHeight,
+      blockhash,
     };
   }
 
   public async sendTransaction(
     transaction: Transaction,
-    lastValidBlockHeight: number
+    lastValidBlockHeight: number,
+    blockhash: string
   ): Promise<string> {
-    const execute = this.constructSendTransactions([transaction], lastValidBlockHeight);
+    const execute = this.constructSendTransactions([transaction], lastValidBlockHeight, blockhash);
     const txs = await execute();
     const ex = txs[0];
     if (ex.status === "fulfilled") {
@@ -59,36 +58,46 @@ export class TransactionProcessor {
   public constructSendTransactions(
     transactions: Transaction[],
     lastValidBlockHeight: number,
+    blockhash: string,
     parallel: boolean = true
   ): () => Promise<PromiseSettledResult<string>[]> {
-    return async () => {
-      let done = false;
-      const isDone = () => done;
+    const executeTx = async (tx: Transaction) => {
+      const rawTxs = tx.serialize();
+      return this.connection.sendRawTransaction(rawTxs, {
+        preflightCommitment: this.commitment,
+      });
+    };
 
-      // We separate the block expiry promise so that it can be shared for all the transactions
-      const expiry = checkBlockHeightExpiry(
-        this.connection,
-        lastValidBlockHeight,
-        this.commitment,
-        isDone
-      );
-      const txs = transactions.map((tx) => tx.serialize());
-      const txPromises = txs.map(async (tx) =>
-        confirmOrExpire(this.connection, tx, this.commitment, expiry)
-      );
-      let results: PromiseSettledResult<string>[] = [];
-      if (parallel) {
-        results = await Promise.allSettled(txPromises);
-      } else {
-        for (const txPromise of txPromises) {
-          // We might be able to have these transactions individually signed and updated, but not sure
-          // of the implications of the resigning - could be quite annoying from a user perspective
-          // if their wallet forces them to sign for each
-          results.push(await promiseToSettled(txPromise));
-        }
+    const confirmTx = async (txId: string) => {
+      const result = await this.connection.confirmTransaction({
+        signature: txId,
+        lastValidBlockHeight: lastValidBlockHeight,
+        blockhash,
+      });
+
+      if (result.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(result.value)}`);
       }
-      done = true;
-      return results;
+    };
+
+    return async () => {
+      if (parallel) {
+        const results = transactions.map(async (tx) => {
+          const txId = await executeTx(tx);
+          await confirmTx(txId);
+          return txId;
+        });
+
+        return Promise.allSettled(results);
+      } else {
+        const results = [];
+        for (const tx of transactions) {
+          const txId = await executeTx(tx);
+          await confirmTx(txId);
+          results.push(txId);
+        }
+        return Promise.allSettled(results);
+      }
     };
   }
 
@@ -96,10 +105,10 @@ export class TransactionProcessor {
     signedTx: Transaction;
     execute: () => Promise<string>;
   }> {
-    const { transaction, lastValidBlockHeight } = await this.signTransaction(txRequest);
+    const { transaction, lastValidBlockHeight, blockhash } = await this.signTransaction(txRequest);
     return {
       signedTx: transaction,
-      execute: async () => this.sendTransaction(transaction, lastValidBlockHeight),
+      execute: async () => this.sendTransaction(transaction, lastValidBlockHeight, blockhash),
     };
   }
 
@@ -110,90 +119,17 @@ export class TransactionProcessor {
     signedTxs: Transaction[];
     execute: () => Promise<PromiseSettledResult<string>[]>;
   }> {
-    const { transactions, lastValidBlockHeight } = await this.signTransactions(txRequests);
-    const execute = this.constructSendTransactions(transactions, lastValidBlockHeight, parallel);
+    const { transactions, lastValidBlockHeight, blockhash } = await this.signTransactions(
+      txRequests
+    );
+    const execute = this.constructSendTransactions(
+      transactions,
+      lastValidBlockHeight,
+      blockhash,
+      parallel
+    );
     return { signedTxs: transactions, execute };
   }
-}
-
-async function promiseToSettled<T>(promise: Promise<T>): Promise<PromiseSettledResult<T>> {
-  try {
-    const value = await promise;
-    return {
-      status: "fulfilled",
-      value: value,
-    };
-  } catch (err) {
-    return {
-      status: "rejected",
-      reason: err,
-    };
-  }
-}
-
-/**
- * Send a tx and confirm that it has reached `commitment` or expiration
- */
-async function confirmOrExpire(
-  connection: Connection,
-  tx: Buffer,
-  commitment: Commitment,
-  expiry: Promise<TransactionStatus>
-) {
-  const txId = await connection.sendRawTransaction(tx, {
-    preflightCommitment: commitment,
-  });
-
-  // Inlined to properly clear subscription id if expired before signature
-  let subscriptionId;
-
-  // Subscribe to onSignature to detect that the transactionId has been
-  // signed with the `commitment` level
-  const confirm = new Promise((resolve, reject) => {
-    try {
-      subscriptionId = connection.onSignature(
-        txId,
-        () => {
-          subscriptionId = undefined;
-          resolve(TransactionStatus.CONFIRMED);
-        },
-        commitment
-      );
-    } catch (err) {
-      reject(err);
-    }
-  });
-
-  try {
-    // Race confirm and expiry to see whether the transaction is confirmed or expires
-    const status = await Promise.race([confirm, expiry]);
-    if (status === TransactionStatus.CONFIRMED) {
-      return txId;
-    } else {
-      throw new Error("Transaction failed to be confirmed before expiring");
-    }
-  } finally {
-    if (subscriptionId) {
-      connection.removeSignatureListener(subscriptionId);
-    }
-  }
-}
-
-async function checkBlockHeightExpiry(
-  connection: Connection,
-  lastValidBlockHeight: number,
-  commitment: Commitment,
-  isDone: () => boolean
-) {
-  while (!isDone()) {
-    let blockHeight = await connection.getBlockHeight(commitment);
-    if (blockHeight > lastValidBlockHeight) {
-      break;
-    }
-    // The more remaining valid blocks, the less frequently we need to check
-    await sleep((lastValidBlockHeight - blockHeight) * 5 + 500);
-  }
-  return TransactionStatus.EXPIRED;
 }
 
 function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, blockhash: string) {
@@ -203,8 +139,4 @@ function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, block
   tx.recentBlockhash = blockhash;
   signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => tx.partialSign(keypair));
   return tx;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
