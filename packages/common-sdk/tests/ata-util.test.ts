@@ -242,4 +242,51 @@ describe("ata-util", () => {
     expect(postAccountData[1]).not.toBeNull();
     expect(postAccountData[2]).not.toBeNull();
   });
+
+  it("resolveOrCreateATA, owner changed ATA detected", async () => {
+    const anotherWallet = Keypair.generate();
+    const mint = await createNewMint();
+
+    const ata = await mint.createAssociatedTokenAccount(wallet.publicKey);
+
+    // should be ok
+    const preOwnerChanged = await resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      mint.publicKey,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+    );
+    expect(preOwnerChanged.address.equals(ata)).toBeTruthy();
+
+    // owner change
+    const builder = new TransactionBuilder(connection, wallet);
+    builder.addInstruction({
+      instructions: [
+        Token.createSetAuthorityInstruction(
+          TOKEN_PROGRAM_ID,
+          ata,
+          anotherWallet.publicKey,
+          "AccountOwner",
+          wallet.publicKey,
+          []
+        )
+      ],
+      cleanupInstructions: [],
+      signers: [],
+    });
+    await builder.buildAndExecute();
+
+    // verify that owner have been changed
+    const changed = await mint.getAccountInfo(ata);
+    expect(changed.owner.equals(anotherWallet.publicKey)).toBeTruthy();
+
+    // should be failed
+    const postOwnerChangedPromise = resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      mint.publicKey,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+    );
+    await expect(postOwnerChangedPromise).rejects.toThrow(/ATA with change of ownership detected/);
+  });
 });
