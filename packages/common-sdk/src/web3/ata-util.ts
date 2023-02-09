@@ -97,6 +97,12 @@ export async function resolveOrCreateATAs(
       const ataAddress = nonNativeAddresses[index]!;
       let resolvedInstruction;
       if (tokenAccount) {
+        // ATA whose owner has been changed is abnormal entity.
+        // To prevent to send swap/withdraw/collect output to the ATA, an error should be thrown.
+        if (!tokenAccount.owner.equals(ownerAddress)) {
+          throw new Error(`ATA with change of ownership detected: ${ataAddress.toBase58()}`);
+        }
+
         resolvedInstruction = { address: ataAddress, ...EMPTY_INSTRUCTION };
       } else {
         const createAtaInstruction = createAssociatedTokenAccountInstruction(
