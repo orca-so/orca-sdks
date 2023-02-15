@@ -25,7 +25,7 @@ type GetMultipleAccountsInfoResponse = (AccountInfo<Buffer> | null)[];
 
 export async function getMultipleAccounts(
   connection: Connection,
-  addresses: PublicKey[]
+  addresses: Address[]
 ): Promise<GetMultipleAccountsInfoResponse> {
   if (addresses.length === 0) {
     return [];
@@ -35,8 +35,11 @@ export async function getMultipleAccounts(
   const chunk = 100; // getMultipleAccounts has limitation of 100 accounts per request
 
   for (let i = 0; i < addresses.length; i += chunk) {
-    const addressesSubset = addresses.slice(i, i + chunk);
-    const res = connection.getMultipleAccountsInfo(addressesSubset, connection.commitment);
+    const addressChunk = addresses.slice(i, i + chunk);
+    const res = connection.getMultipleAccountsInfo(
+      AddressUtil.toPubKeys(addressChunk),
+      connection.commitment
+    );
     responses.push(res);
   }
 
