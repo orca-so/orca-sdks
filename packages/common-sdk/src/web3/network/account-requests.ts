@@ -1,8 +1,17 @@
 import { Address } from "@project-serum/anchor";
-import { Connection, AccountInfo, PublicKey } from "@solana/web3.js";
+import { Connection, AccountInfo } from "@solana/web3.js";
 import invariant from "tiny-invariant";
 import { AddressUtil } from "../address-util";
 import { ParsableEntity } from "./parsing";
+
+export async function getParsedAccount<T>(
+  connection: Connection,
+  address: Address,
+  parser: ParsableEntity<T>
+): Promise<T | null> {
+  const value = await connection.getAccountInfo(AddressUtil.toPubKey(address));
+  return parser.parse(value?.data);
+}
 
 export async function getMultipleParsedAccounts<T>(
   connection: Connection,
