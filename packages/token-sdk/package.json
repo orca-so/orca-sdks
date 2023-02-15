@@ -1,0 +1,45 @@
+{
+  "name": "@orca-so/token-sdk",
+  "version": "0.0.1",
+  "description": "SPL Token Utilities",
+  "repository": "https://github.com/orca-so/orca-sdks",
+  "author": "Orca Foundation",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@metaplex-foundation/js": "^0.18.1",
+    "@solana/spl-token": "0.1.8",
+    "@solana/web3.js": "^1.73.2",
+    "decimal.js": "^10.3.1",
+    "isomorphic-unfetch": "^4.0.2",
+    "p-limit": "3.1.0",
+    "tiny-invariant": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "~5.1.0",
+    "@types/decimal.js": "^7.4.0",
+    "@types/jest": "^26.0.24",
+    "@typescript-eslint/eslint-plugin": "^4.26.0",
+    "@typescript-eslint/parser": "^4.26.0",
+    "eslint-config-prettier": "^8.3.0",
+    "jest": "^27.0.6",
+    "prettier": "^2.3.2",
+    "process": "^0.11.10",
+    "ts-jest": "^27.0.3",
+    "typescript": "^4.5.5"
+  },
+  "scripts": {
+    "build": "tsc -p src",
+    "watch": "tsc -w -p src",
+    "prepublishOnly": "yarn build",
+    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
+    "test": "jest"
+  },
+  "lint-staged": {
+    "*.{ts,md}": "yarn run prettier-format"
+  },
+  "files": [
+    "/dist"
+  ]
+}
