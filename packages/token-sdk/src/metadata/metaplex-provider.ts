@@ -1,7 +1,8 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { MetadataProvider, MintString, TokenMetadata } from "../token";
+import { MintString } from "../models";
 import pLimit, { Limit } from "p-limit";
+import { MetadataProvider, TokenMetadata } from "./models";
 
 const DEFAULT_RPS = 50;
 
@@ -14,13 +15,12 @@ export class MetaplexProvider implements MetadataProvider {
     this.limit = pLimit(rps);
   }
 
-  async find(mint: PublicKey): Promise<Partial<TokenMetadata>> {
+  async find(mint: PublicKey): Promise<Partial<TokenMetadata | null>> {
     let metadata;
     try {
       metadata = await this.metaplex.nfts().findByMint({ mintAddress: mint });
     } catch (e) {
-      console.warn(`Mint ${mint.toBase58()} does not have metaplex metadata account`);
-      return {};
+      return null;
     }
 
     // Use the Token Standard field to determine version of the metadata
@@ -35,10 +35,13 @@ export class MetaplexProvider implements MetadataProvider {
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
     const loaded = await Promise.all(
       results.map((result) => {
-        if (result && isMetadata(result)) {
+        if (!result) {
+          return null;
+        } else if (isMetadata(result)) {
           return this.limit(async () => this.metaplex.nfts().load({ metadata: result }));
+        } else {
+          return result;
         }
-        return result;
       })
     );
     return Object.fromEntries(
