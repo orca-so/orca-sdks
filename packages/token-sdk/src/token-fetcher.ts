@@ -3,13 +3,12 @@ import { MintString, Token } from "./models";
 import { getMultipleParsedAccounts, getParsedAccount, ParsableMintInfo } from "@orca-so/common-sdk";
 import { MintInfo } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import { MetadataProvider, MetadataMergeStrategy, DEFAULT_MERGE_STRATEGY } from "./metadata";
+import { MetadataProvider, TokenMetadata } from "./metadata";
 
 export class TokenFetcher {
   private readonly connection: Connection;
   private readonly _cache: Record<MintString, Token> = {};
   private readonly providers: MetadataProvider[] = [];
-  private mergeStrategy: MetadataMergeStrategy = DEFAULT_MERGE_STRATEGY;
 
   private constructor(connection: Connection, cache: Record<MintString, Token> = {}) {
     this.connection = connection;
@@ -25,9 +24,23 @@ export class TokenFetcher {
     return this;
   }
 
-  public setMergeStrategy(mergeStrategy: MetadataMergeStrategy): TokenFetcher {
-    this.mergeStrategy = mergeStrategy;
-    return this;
+  protected mergeMetadata(metadatas: Partial<TokenMetadata | null>[]): Partial<TokenMetadata> {
+    const merged: Partial<TokenMetadata> = {};
+    metadatas.forEach((metadata) => {
+      if (!metadata) {
+        return;
+      }
+      if (!merged.name) {
+        merged.name = metadata.name;
+      }
+      if (!merged.symbol) {
+        merged.symbol = metadata.symbol;
+      }
+      if (!merged.image) {
+        merged.image = metadata.image;
+      }
+    });
+    return merged;
   }
 
   public async find(mint: PublicKey): Promise<Token> {
@@ -35,8 +48,10 @@ export class TokenFetcher {
     if (!this._cache[mintString]) {
       const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
       invariant(mintInfo, "Mint info not found");
-      const metadata = await this.mergeStrategy([mint], this.providers);
-      this._cache[mintString] = { mint, decimals: mintInfo.decimals, ...metadata[mintString] };
+      const metadata = this.mergeMetadata(
+        await Promise.all(this.providers.map((provider) => provider.find(mint)))
+      );
+      this._cache[mintString] = { mint, decimals: mintInfo.decimals, ...metadata };
     }
     return { ...this._cache[mintString] };
   }
@@ -50,13 +65,17 @@ export class TokenFetcher {
       ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
 
-      const metadatas = await this.mergeStrategy(misses, this.providers);
+      const metadatas = await Promise.all(
+        this.providers.map((provider) => provider.findMany(misses))
+      );
+
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
+        const merged = this.mergeMetadata(metadatas.map((m) => m[mintString]));
         this._cache[mintString] = {
           mint,
           decimals: mintInfos[index].decimals,
-          ...metadatas[mintString],
+          ...merged,
         };
       });
     }
