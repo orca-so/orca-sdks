@@ -1,8 +1,10 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection } from "@solana/web3.js";
+import { Address } from "@project-serum/anchor";
 import { MintString } from "../models";
 import pLimit, { Limit } from "p-limit";
 import { MetadataProvider, TokenMetadata } from "./models";
+import { AddressUtil } from "@orca-so/common-sdk";
 
 const DEFAULT_RPS = 50;
 
@@ -15,10 +17,12 @@ export class MetaplexProvider implements MetadataProvider {
     this.limit = pLimit(rps);
   }
 
-  async find(mint: PublicKey): Promise<Partial<TokenMetadata | null>> {
+  async find(address: Address): Promise<Partial<TokenMetadata | null>> {
     let metadata;
     try {
-      metadata = await this.metaplex.nfts().findByMint({ mintAddress: mint });
+      metadata = await this.metaplex
+        .nfts()
+        .findByMint({ mintAddress: AddressUtil.toPubKey(address) });
     } catch (e) {
       return null;
     }
@@ -31,7 +35,8 @@ export class MetaplexProvider implements MetadataProvider {
     return transformMetadataV1_1(metadata);
   }
 
-  async findMany(mints: PublicKey[]): Promise<Record<MintString, Partial<TokenMetadata> | null>> {
+  async findMany(addresses: Address[]): Promise<Record<MintString, Partial<TokenMetadata> | null>> {
+    const mints = AddressUtil.toPubKeys(addresses);
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
     const loaded = await Promise.all(
       results.map((result) => {

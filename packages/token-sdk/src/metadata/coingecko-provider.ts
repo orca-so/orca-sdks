@@ -1,4 +1,5 @@
-import { PublicKey } from "@solana/web3.js";
+import { AddressUtil } from "@orca-so/common-sdk";
+import { Address } from "@project-serum/anchor";
 import pLimit, { Limit } from "p-limit";
 import { CoingeckoClient, CoingeckoHttpClient, ContractResponse } from "./client/coingecko-client";
 import { MetadataProvider, TokenMetadata } from "./models";
@@ -15,19 +16,22 @@ export class CoingeckoProvider implements MetadataProvider {
     this.limit = pLimit(rps);
   }
 
-  async find(mint: PublicKey): Promise<Partial<TokenMetadata | null>> {
+  async find(address: Address): Promise<Partial<TokenMetadata | null>> {
+    const mintPubKey = AddressUtil.toPubKey(address);
     try {
-      const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mint.toBase58());
+      const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58());
       return convertToTokenMetadata(contract);
     } catch (e) {
-      console.error(`Unable to fetch ${mint.toBase58()} coingecko metadata`);
+      console.error(`Unable to fetch ${mintPubKey.toBase58()} coingecko metadata`);
       return null;
     }
   }
 
-  async findMany(mints: PublicKey[]): Promise<Record<string, Partial<TokenMetadata> | null>> {
-    const metas = await Promise.all(mints.map((mint) => this.limit(async () => this.find(mint))));
-    return Object.fromEntries(mints.map((mint, index) => [mint.toBase58(), metas[index]]));
+  async findMany(addresses: Address[]): Promise<Record<string, Partial<TokenMetadata> | null>> {
+    const metas = await Promise.all(addresses.map((a) => this.limit(async () => this.find(a))));
+    return Object.fromEntries(
+      AddressUtil.toPubKeys(addresses).map((mint, index) => [mint.toBase58(), metas[index]])
+    );
   }
 }
 

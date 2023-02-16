@@ -1,6 +1,12 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection } from "@solana/web3.js";
+import { Address } from "@project-serum/anchor";
 import { MintString, Token } from "./models";
-import { getMultipleParsedAccounts, getParsedAccount, ParsableMintInfo } from "@orca-so/common-sdk";
+import {
+  AddressUtil,
+  getMultipleParsedAccounts,
+  getParsedAccount,
+  ParsableMintInfo,
+} from "@orca-so/common-sdk";
 import { MintInfo } from "@solana/spl-token";
 import invariant from "tiny-invariant";
 import { MetadataProvider, TokenMetadata } from "./metadata";
@@ -43,7 +49,8 @@ export class TokenFetcher {
     return merged;
   }
 
-  public async find(mint: PublicKey): Promise<Token> {
+  public async find(address: Address): Promise<Token> {
+    const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (!this._cache[mintString]) {
       const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
@@ -51,12 +58,17 @@ export class TokenFetcher {
       const metadata = this.mergeMetadata(
         await Promise.all(this.providers.map((provider) => provider.find(mint)))
       );
-      this._cache[mintString] = { mint, decimals: mintInfo.decimals, ...metadata };
+      this._cache[mintString] = {
+        mint,
+        decimals: mintInfo.decimals,
+        ...metadata,
+      };
     }
     return { ...this._cache[mintString] };
   }
 
-  public async findMany(mints: PublicKey[]): Promise<Record<MintString, Token>> {
+  public async findMany(addresses: Address[]): Promise<Record<MintString, Token>> {
+    const mints = AddressUtil.toPubKeys(addresses);
     const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
 
     if (misses.length > 0) {

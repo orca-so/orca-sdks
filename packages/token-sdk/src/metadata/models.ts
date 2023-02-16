@@ -1,9 +1,9 @@
-import { PublicKey } from "@solana/web3.js";
+import { Address } from "@project-serum/anchor";
 import { MintString } from "../models";
 
 export interface MetadataProvider {
-  find(mint: PublicKey): Promise<Partial<TokenMetadata | null>>;
-  findMany(mints: PublicKey[]): Promise<Record<MintString, Partial<TokenMetadata> | null>>;
+  find(address: Address): Promise<Partial<TokenMetadata | null>>;
+  findMany(addresses: Address[]): Promise<Record<MintString, Partial<TokenMetadata> | null>>;
 }
 
 export interface TokenMetadata {
