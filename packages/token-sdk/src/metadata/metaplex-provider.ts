@@ -79,7 +79,11 @@ function transformMetadataV1_0(token: Sft | Nft): Partial<TokenMetadata> {
 // Token is v1.1 standard, which means there should be an off-chain JSON metadata file.
 function transformMetadataV1_1(token: Sft | Nft): Partial<TokenMetadata> {
   if (!token.jsonLoaded || !token.json) {
-    throw new Error(`Metadata JSON should be present for v1.1 token: ${token.address.toBase58()}`);
+    console.error(
+      `Failed to load v1.1 data for ${token.symbol} - ${token.address.toBase58()} - ${token.uri}`
+    );
+    // Return the on-chain, non v1.1 metadata as a fallback
+    return { symbol: token.symbol, name: token.name };
   }
   return {
     symbol: token.json.symbol,

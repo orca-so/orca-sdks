@@ -4,11 +4,11 @@ import invariant from "tiny-invariant";
 const CG_API_URL = "https://api.coingecko.com/api/v3";
 const CG_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
 
-export interface CoingeckoClient {
+export interface CoinGeckoClient {
   getContract(assetPlatform: string, contract: string): Promise<ContractResponse>;
 }
 
-export class CoingeckoHttpClient implements CoingeckoClient {
+export class CoinGeckoHttpClient implements CoinGeckoClient {
   private readonly apiKey?: string;
   constructor(apiKey?: string) {
     this.apiKey = apiKey;
@@ -39,7 +39,7 @@ function isContractResponse(value: any): value is ContractResponse {
   return typeof value === "object" && value !== null && "contract_address" in value;
 }
 
-// Minimum subset of Coingecko's response
+// Minimum subset of CoinGecko's response
 export interface ContractResponse {
   contract_address: string;
   id: string;
