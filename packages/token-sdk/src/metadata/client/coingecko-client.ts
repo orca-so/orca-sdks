@@ -5,7 +5,7 @@ const CG_API_URL = "https://api.coingecko.com/api/v3";
 const CG_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
 
 export interface CoinGeckoClient {
-  getContract(assetPlatform: string, contract: string): Promise<ContractResponse>;
+  getContract(assetPlatform: string, contract: string): Promise<ContractResponse | null>;
 }
 
 export class CoinGeckoHttpClient implements CoinGeckoClient {
@@ -20,13 +20,16 @@ export class CoinGeckoHttpClient implements CoinGeckoClient {
       : `${CG_API_URL}${path}`;
   }
 
-  async getContract(assetPlatform: string, contract: string): Promise<ContractResponse> {
+  async getContract(assetPlatform: string, contract: string): Promise<ContractResponse | null> {
     const path = `/coins/${assetPlatform}/contract/${contract}`;
     let response;
     try {
       response = await fetch(this.buildUrl(path));
     } catch (e) {
       throw new Error(`Unexpected error fetching ${path}: ${e}`);
+    }
+    if (response.status === 404) {
+      return null;
     }
     invariant(response.ok, `Unexpected status code fetching ${path}: ${response.status}`);
     const json = await response.json();

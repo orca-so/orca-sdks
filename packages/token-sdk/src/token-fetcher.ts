@@ -1,6 +1,6 @@
 import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
-import { MintString, Token } from "./models";
+import { Token } from "./models";
 import {
   AddressUtil,
   getMultipleParsedAccounts,
@@ -13,15 +13,15 @@ import { MetadataProvider, TokenMetadata } from "./metadata";
 
 export class TokenFetcher {
   private readonly connection: Connection;
-  private readonly _cache: Record<MintString, Token> = {};
+  private readonly _cache: Record<string, Token> = {};
   private readonly providers: MetadataProvider[] = [];
 
-  private constructor(connection: Connection, cache: Record<MintString, Token> = {}) {
+  private constructor(connection: Connection, cache: Record<string, Token> = {}) {
     this.connection = connection;
     this._cache = cache;
   }
 
-  public static from(connection: Connection, cache?: Record<MintString, Token>): TokenFetcher {
+  public static from(connection: Connection, cache?: Record<string, Token>): TokenFetcher {
     return new TokenFetcher(connection, cache);
   }
 
@@ -30,32 +30,13 @@ export class TokenFetcher {
     return this;
   }
 
-  protected mergeMetadata(metadatas: Partial<TokenMetadata | null>[]): Partial<TokenMetadata> {
-    const merged: Partial<TokenMetadata> = {};
-    metadatas.forEach((metadata) => {
-      if (!metadata) {
-        return;
-      }
-      if (!merged.name) {
-        merged.name = metadata.name;
-      }
-      if (!merged.symbol) {
-        merged.symbol = metadata.symbol;
-      }
-      if (!merged.image) {
-        merged.image = metadata.image;
-      }
-    });
-    return merged;
-  }
-
   public async find(address: Address): Promise<Token> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (!this._cache[mintString]) {
       const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
       invariant(mintInfo, "Mint info not found");
-      const metadata = this.mergeMetadata(
+      const metadata = mergeMetadata(
         await Promise.all(this.providers.map((provider) => provider.find(mint)))
       );
       this._cache[mintString] = {
@@ -67,7 +48,7 @@ export class TokenFetcher {
     return { ...this._cache[mintString] };
   }
 
-  public async findMany(addresses: Address[]): Promise<Record<MintString, Token>> {
+  public async findMany(addresses: Address[]): Promise<Record<string, Token>> {
     const mints = AddressUtil.toPubKeys(addresses);
     const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
 
@@ -83,7 +64,7 @@ export class TokenFetcher {
 
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
-        const merged = this.mergeMetadata(metadatas.map((m) => m[mintString]));
+        const merged = mergeMetadata(metadatas.map((m) => m[mintString]));
         this._cache[mintString] = {
           mint,
           decimals: mintInfos[index].decimals,
@@ -96,4 +77,23 @@ export class TokenFetcher {
       mints.map((mint) => [mint.toBase58(), { ...this._cache[mint.toBase58()] }])
     );
   }
+}
+
+function mergeMetadata(metadatas: Partial<TokenMetadata | null>[]): Partial<TokenMetadata> {
+  const merged: Partial<TokenMetadata> = {};
+  metadatas.forEach((metadata) => {
+    if (!metadata) {
+      return;
+    }
+    if (!merged.name) {
+      merged.name = metadata.name;
+    }
+    if (!merged.symbol) {
+      merged.symbol = metadata.symbol;
+    }
+    if (!merged.image) {
+      merged.image = metadata.image;
+    }
+  });
+  return merged;
 }

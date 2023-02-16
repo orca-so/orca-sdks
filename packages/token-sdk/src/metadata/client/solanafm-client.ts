@@ -27,27 +27,21 @@ export class SolanaFmHttpClient implements SolanaFmClient {
 
   async getTokens(tokenHashes: string[]): Promise<TokenResult[]> {
     const url = `${SOLANA_FM_API_URL}/${TOKENS_PATH}`;
-
-    const responses: Promise<GetTokensResponse>[] = [];
-    const chunkSize = 50;
-
-    for (let i = 0; i < tokenHashes.length; i += chunkSize) {
-      const chunk = tokenHashes.slice(i, i + chunkSize);
-      const res = fetch(url, {
+    let response;
+    try {
+      response = await fetch(url, {
         method: "post",
-        body: JSON.stringify({ tokenHashes: chunk }),
+        body: JSON.stringify({ tokenHashes }),
         headers: { "Content-Type": "application/json" },
-      }).then((res) => res.json());
-      responses.push(res);
+      });
+    } catch (e) {
+      throw new Error(`Unexpected error fetching ${url}: ${e}`);
     }
-    const results = await Promise.all(responses);
-    return results
-      .map((res) => {
-        invariant(isGetTokensResponse(res), "Unexpected SolanaFM getTokens response type");
-        invariant(res.status === "success", "Unexpected SolanaFM getToken response status");
-        return res.result;
-      })
-      .flat();
+    invariant(response.ok, `Unexpected status code fetching ${url}: ${response.status}`);
+    const json = await response.json();
+    invariant(isGetTokensResponse(json), "Unexpected SolanaFM getTokens response type");
+    invariant(json.status === "success", "Unexpected SolanaFM getTokens response status");
+    return json.result;
   }
 }
 

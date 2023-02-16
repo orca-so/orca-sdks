@@ -30,7 +30,7 @@ export class CoinGeckoProvider implements MetadataProvider {
       const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58());
       return convertToTokenMetadata(contract);
     } catch (e) {
-      console.error(`Unable to fetch ${mintPubKey.toBase58()} coingecko metadata - ${e}`);
+      console.error(`Error fetching ${mintPubKey.toBase58()} coingecko metadata - ${e}`);
       return null;
     }
   }
@@ -43,7 +43,10 @@ export class CoinGeckoProvider implements MetadataProvider {
   }
 }
 
-function convertToTokenMetadata(contract: ContractResponse): Partial<TokenMetadata> {
+function convertToTokenMetadata(contract: ContractResponse | null): Partial<TokenMetadata | null> {
+  if (!contract) {
+    return null;
+  }
   return {
     symbol: contract.symbol.toUpperCase(), // Coingecko symbols are lowercase
     name: contract.name,
