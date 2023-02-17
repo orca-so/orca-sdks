@@ -1,6 +1,6 @@
 import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
-import { Token } from "./models";
+import { Token } from "./types";
 import {
   AddressUtil,
   getMultipleParsedAccounts,
@@ -9,7 +9,7 @@ import {
 } from "@orca-so/common-sdk";
 import { MintInfo } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import { MetadataProvider, TokenMetadata } from "./metadata";
+import { MetadataProvider, MetadataUtil } from "./metadata";
 
 export class TokenFetcher {
   private readonly connection: Connection;
@@ -36,14 +36,23 @@ export class TokenFetcher {
     if (!this._cache[mintString]) {
       const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
       invariant(mintInfo, "Mint info not found");
-      const metadata = mergeMetadata(
-        await Promise.all(this.providers.map((provider) => provider.find(mint)))
-      );
       this._cache[mintString] = {
         mint,
         decimals: mintInfo.decimals,
-        ...metadata,
       };
+
+      for (const provider of this.providers) {
+        const metadata = await provider.find(mint);
+        const cachedValue = this._cache[mintString];
+        this._cache[mintString] = {
+          mint: cachedValue.mint,
+          decimals: cachedValue.decimals,
+          ...MetadataUtil.merge(cachedValue, metadata),
+        };
+        if (!MetadataUtil.isPartial(this._cache[mintString])) {
+          break;
+        }
+      }
     }
     return { ...this._cache[mintString] };
   }
@@ -57,43 +66,40 @@ export class TokenFetcher {
         await getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo)
       ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
-
-      const metadatas = await Promise.all(
-        this.providers.map((provider) => provider.findMany(misses))
-      );
-
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
-        const merged = mergeMetadata(metadatas.map((m) => m[mintString]));
         this._cache[mintString] = {
           mint,
           decimals: mintInfos[index].decimals,
-          ...merged,
         };
       });
+
+      let next = misses;
+      for (const provider of this.providers) {
+        const metadatas = await provider.findMany(next);
+        next = [];
+        misses.forEach((mint) => {
+          const mintString = mint.toBase58();
+          const cachedValue = this._cache[mintString];
+          if (metadatas[mintString]) {
+            this._cache[mintString] = {
+              mint: cachedValue.mint,
+              decimals: cachedValue.decimals,
+              ...MetadataUtil.merge(cachedValue, metadatas[mintString]),
+            };
+          }
+          if (MetadataUtil.isPartial(this._cache[mintString])) {
+            next.push(mint);
+          }
+        });
+        if (next.length === 0) {
+          break;
+        }
+      }
     }
 
     return Object.fromEntries(
       mints.map((mint) => [mint.toBase58(), { ...this._cache[mint.toBase58()] }])
     );
   }
-}
-
-function mergeMetadata(metadatas: Partial<TokenMetadata | null>[]): Partial<TokenMetadata> {
-  const merged: Partial<TokenMetadata> = {};
-  metadatas.forEach((metadata) => {
-    if (!metadata) {
-      return;
-    }
-    if (!merged.name) {
-      merged.name = metadata.name;
-    }
-    if (!merged.symbol) {
-      merged.symbol = metadata.symbol;
-    }
-    if (!merged.image) {
-      merged.image = metadata.image;
-    }
-  });
-  return merged;
 }

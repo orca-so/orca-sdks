@@ -7,10 +7,10 @@ export type TokenMint = { mint: PublicKey };
 
 export type TokenDecimals = { decimals: number };
 
-export interface Tokenlist {
+export type Tokenlist = {
   tokens: Token[];
-}
+};
 
-export interface Mintlist {
+export type Mintlist = {
   mints: string[];
-}
+};

@@ -1,3 +1,3 @@
 export * from "./metadata";
-export * from "./models";
+export * from "./types";
 export * from "./token-fetcher";
