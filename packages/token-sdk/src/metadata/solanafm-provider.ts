@@ -2,7 +2,7 @@ import { AddressUtil } from "@orca-so/common-sdk";
 import { Address } from "@project-serum/anchor";
 import PQueue from "p-queue";
 import { SolanaFmClient, SolanaFmHttpClient, TokenResult } from "./client";
-import { MetadataProvider, TokenMetadata } from "./models";
+import { MetadataProvider, TokenMetadata } from "./types";
 
 const DEFAULT_CONCURRENCY = 100;
 const DEFAULT_INTERVAL_MS = 1000;

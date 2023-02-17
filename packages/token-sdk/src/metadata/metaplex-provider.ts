@@ -1,7 +1,7 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
-import { MetadataProvider, TokenMetadata } from "./models";
+import { MetadataProvider, TokenMetadata } from "./types";
 import { AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 

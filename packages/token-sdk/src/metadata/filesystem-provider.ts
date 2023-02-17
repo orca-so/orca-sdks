@@ -1,6 +1,6 @@
 import { AddressUtil } from "@orca-so/common-sdk";
 import { Address } from "@project-serum/anchor";
-import { MetadataProvider, TokenMetadata } from "./models";
+import { MetadataProvider, TokenMetadata } from "./types";
 
 export class FileSystemProvider implements MetadataProvider {
   constructor(private readonly _cache: Record<string, Partial<TokenMetadata>> = {}) {}

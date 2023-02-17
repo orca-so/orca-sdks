@@ -3,14 +3,18 @@ import { TokenMetadata } from "./metadata";
 
 export type Token = TokenMint & TokenDecimals & Partial<TokenMetadata>;
 
-export type TokenMint = { mint: PublicKey };
+export interface TokenMint {
+  mint: PublicKey;
+}
 
-export type TokenDecimals = { decimals: number };
+export interface TokenDecimals {
+  decimals: number;
+}
 
-export type Tokenlist = {
+export interface Tokenlist {
   tokens: Token[];
-};
+}
 
-export type Mintlist = {
+export interface Mintlist {
   mints: string[];
-};
+}

@@ -1,7 +1,7 @@
 import { AddressUtil } from "@orca-so/common-sdk";
 import { Address } from "@project-serum/anchor";
 import { CoinGeckoClient, CoinGeckoHttpClient, ContractResponse } from "./client/coingecko-client";
-import { MetadataProvider, TokenMetadata } from "./models";
+import { MetadataProvider, TokenMetadata } from "./types";
 import PQueue from "p-queue";
 
 const DEFAULT_CONCURRENCY = 1;

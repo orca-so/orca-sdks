@@ -1,4 +1,4 @@
-import { TokenMetadata } from "./models";
+import { TokenMetadata } from "./types";
 
 export class MetadataUtil {
   public static isPartial(metadata: Partial<TokenMetadata>): boolean {
