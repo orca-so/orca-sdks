@@ -53,6 +53,6 @@ export async function getMultipleAccounts(
   }
 
   const combinedResult = (await Promise.all(responses)).flat();
-  invariant(combinedResult.length === addresses.length, "bulkRequest not enough results");
+  invariant(combinedResult.length === addresses.length, "getMultipleAccounts not enough results");
   return combinedResult;
 }

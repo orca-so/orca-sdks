@@ -1,4 +1,11 @@
-import { AccountInfo, AccountLayout, NATIVE_MINT, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import {
+  AccountInfo,
+  AccountLayout,
+  NATIVE_MINT,
+  Token,
+  TOKEN_PROGRAM_ID,
+  u64,
+} from "@solana/spl-token";
 import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import invariant from "tiny-invariant";
 import { ZERO } from "../math";
@@ -8,7 +15,6 @@ import { deriveATA, Instruction, resolveOrCreateATA } from "../web3";
  * @category Util
  */
 export class TokenUtil {
-
   public static isNativeMint(mint: PublicKey) {
     return mint.equals(NATIVE_MINT);
   }
@@ -16,6 +22,10 @@ export class TokenUtil {
   public static deserializeTokenAccount = (data: Buffer | undefined): AccountInfo | null => {
     if (!data) {
       return null;
+    }
+
+    if (data.byteLength !== AccountLayout.span) {
+      throw new Error("Invalid data length for TokenAccount");
     }
 
     const accountInfo = AccountLayout.decode(data);
@@ -83,13 +93,13 @@ export class TokenUtil {
       const sendSolTxn = SystemProgram.transfer({
         fromPubkey: sourceWallet,
         toPubkey: destinationWallet,
-        lamports: BigInt(amount.toString())
-      })
+        lamports: BigInt(amount.toString()),
+      });
       return {
         instructions: [sendSolTxn],
         cleanupInstructions: [],
-        signers: []
-      }
+        signers: [],
+      };
     }
 
     const sourceTokenAccount = await deriveATA(sourceWallet, tokenMint);

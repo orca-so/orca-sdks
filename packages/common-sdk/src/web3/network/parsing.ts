@@ -50,6 +50,9 @@ export class ParsableMintInfo {
     }
 
     try {
+      if (data.byteLength !== MintLayout.span) {
+        throw new Error("Invalid data length for MintInfo");
+      }
       const buffer = MintLayout.decode(data);
       const mintInfo: MintInfo = {
         mintAuthority:
