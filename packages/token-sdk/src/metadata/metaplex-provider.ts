@@ -1,7 +1,12 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
-import { MetadataProvider, TokenMetadata } from "./types";
+import {
+  MetadataProvider,
+  TokenMetadata,
+  ReadonlyTokenMetadata,
+  ReadonlyTokenMetadataMap,
+} from "./types";
 import { AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 
@@ -23,7 +28,7 @@ export class MetaplexProvider implements MetadataProvider {
     this.queue = new PQueue({ concurrency, interval: intervalMs });
   }
 
-  async find(address: Address): Promise<Partial<TokenMetadata | null>> {
+  async find(address: Address): Promise<ReadonlyTokenMetadata> {
     let metadata;
     try {
       metadata = await this.metaplex
@@ -41,7 +46,7 @@ export class MetaplexProvider implements MetadataProvider {
     return transformMetadataV1_1(metadata);
   }
 
-  async findMany(addresses: Address[]): Promise<Record<string, Partial<TokenMetadata> | null>> {
+  async findMany(addresses: Address[]): Promise<ReadonlyTokenMetadataMap> {
     const mints = AddressUtil.toPubKeys(addresses);
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
     const loaded = await Promise.all(
@@ -75,11 +80,14 @@ export class MetaplexProvider implements MetadataProvider {
 // Token is v1.0 standard. Many 1.0 tokens do not have off-chain JSON metadata.
 // https://docs.metaplex.com/programs/token-metadata/changelog/v1.0
 function transformMetadataV1_0(token: Sft | Nft): Partial<TokenMetadata> {
-  return {
+  const metadata: Partial<TokenMetadata> = {
     symbol: token.symbol,
     name: token.name,
-    image: token.jsonLoaded && token.json ? token.json.image : undefined,
   };
+  if (token.jsonLoaded && token.json) {
+    metadata.image = token.json.image;
+  }
+  return metadata;
 }
 
 // Token is v1.1 standard, which means there should be an off-chain JSON metadata file.
