@@ -12,9 +12,11 @@ export interface TokenDecimals {
 }
 
 export interface Tokenlist {
+  name: string;
   tokens: Token[];
 }
 
 export interface Mintlist {
+  name: string;
   mints: string[];
 }
