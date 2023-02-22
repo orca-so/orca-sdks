@@ -61,7 +61,7 @@ export class ParsableMintInfo {
         decimals: buffer.decimals,
         isInitialized: buffer.isInitialized !== 0,
         freezeAuthority:
-          buffer.freezeAuthority === 0 ? null : new PublicKey(buffer.freezeAuthority),
+          buffer.freezeAuthorityOption === 0 ? null : new PublicKey(buffer.freezeAuthority),
       };
 
       return mintInfo;
