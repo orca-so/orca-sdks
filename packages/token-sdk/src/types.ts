@@ -1,10 +1,10 @@
-import { PublicKey } from "@solana/web3.js";
+import { Address } from "@project-serum/anchor";
 import { TokenMetadata } from "./metadata";
 
 export type Token = TokenMint & TokenDecimals & Partial<TokenMetadata>;
 
 export interface TokenMint {
-  mint: PublicKey;
+  mint: Address;
 }
 
 export interface TokenDecimals {
