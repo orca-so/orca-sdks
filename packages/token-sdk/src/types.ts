@@ -1,10 +1,9 @@
-import { Address } from "@project-serum/anchor";
 import { TokenMetadata } from "./metadata";
 
 export type Token = TokenMint & TokenDecimals & Partial<TokenMetadata>;
 
 export interface TokenMint {
-  mint: Address;
+  mint: string;
 }
 
 export interface TokenDecimals {

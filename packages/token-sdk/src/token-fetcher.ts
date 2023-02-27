@@ -40,7 +40,7 @@ export class TokenFetcher {
       const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
       invariant(mintInfo, "Mint info not found");
       this._cache[mintString] = {
-        mint,
+        mint: mintString,
         decimals: mintInfo.decimals,
       };
 
@@ -72,7 +72,7 @@ export class TokenFetcher {
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
         this._cache[mintString] = {
-          mint,
+          mint: mintString,
           decimals: mintInfos[index].decimals,
         };
       });
