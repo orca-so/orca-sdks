@@ -1,16 +1,11 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
-import {
-  MetadataProvider,
-  TokenMetadata,
-  ReadonlyTokenMetadata,
-  ReadonlyTokenMetadataMap,
-} from "./types";
+import { MetadataProvider, TokenMetadata } from "./types";
 import { AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 
-const DEFAULT_CONCURRENCY = 100;
+const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
 
 interface Opts {
@@ -28,7 +23,7 @@ export class MetaplexProvider implements MetadataProvider {
     this.queue = new PQueue({ concurrency, interval: intervalMs });
   }
 
-  async find(address: Address): Promise<ReadonlyTokenMetadata> {
+  async find(address: Address): Promise<Partial<TokenMetadata> | null> {
     let metadata;
     try {
       metadata = await this.metaplex
@@ -46,7 +41,7 @@ export class MetaplexProvider implements MetadataProvider {
     return transformMetadataV1_1(metadata);
   }
 
-  async findMany(addresses: Address[]): Promise<ReadonlyTokenMetadataMap> {
+  async findMany(addresses: Address[]): Promise<Record<string, Partial<TokenMetadata> | null>> {
     const mints = AddressUtil.toPubKeys(addresses);
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
     const loaded = await Promise.all(

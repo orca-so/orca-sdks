@@ -11,9 +11,6 @@ import { MintInfo } from "@solana/spl-token";
 import invariant from "tiny-invariant";
 import { MetadataProvider, MetadataUtil } from "./metadata";
 
-type ReadonlyToken = Readonly<Token>;
-type ReadonlyTokenMap = Readonly<Record<string, ReadonlyToken>>;
-
 export class TokenFetcher {
   private readonly connection: Connection;
   private readonly _cache: Record<string, Token> = {};
@@ -33,7 +30,7 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address): Promise<ReadonlyToken> {
+  public async find(address: Address): Promise<Token> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (!this._cache[mintString]) {
@@ -57,10 +54,10 @@ export class TokenFetcher {
         }
       }
     }
-    return this._cache[mintString];
+    return { ...this._cache[mintString] };
   }
 
-  public async findMany(addresses: Address[]): Promise<ReadonlyTokenMap> {
+  public async findMany(addresses: Address[]): Promise<Readonly<Record<string, Token>>> {
     const mints = AddressUtil.toPubKeys(addresses);
     const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
 
@@ -101,6 +98,8 @@ export class TokenFetcher {
       }
     }
 
-    return Object.fromEntries(mints.map((mint) => [mint.toBase58(), this._cache[mint.toBase58()]]));
+    return Object.fromEntries(
+      mints.map((mint) => [mint.toBase58(), { ...this._cache[mint.toBase58()] }])
+    );
   }
 }
