@@ -9,20 +9,30 @@ import {
 } from "@orca-so/common-sdk";
 import { MintInfo } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import { MetadataProvider, MetadataUtil } from "./metadata";
+import { MetadataProvider, MetadataUtil, TokenMetadata } from "./metadata";
+import pTimeout from "p-timeout";
+
+const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+interface Opts {
+  timeoutMs?: number;
+  cache?: Record<string, Token>;
+}
 
 export class TokenFetcher {
   private readonly connection: Connection;
-  private readonly _cache: Record<string, Token> = {};
+  private readonly _cache: Record<string, Token>;
   private readonly providers: MetadataProvider[] = [];
+  private readonly timeoutMs: number;
 
-  private constructor(connection: Connection, cache: Record<string, Token> = {}) {
+  private constructor(connection: Connection, opts: Opts) {
     this.connection = connection;
-    this._cache = cache;
+    this._cache = opts.cache ?? {};
+    this.timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
   }
 
-  public static from(connection: Connection, cache?: Record<string, Token>): TokenFetcher {
-    return new TokenFetcher(connection, cache);
+  public static from(connection: Connection, opts: Opts = {}): TokenFetcher {
+    return new TokenFetcher(connection, opts);
   }
 
   public addProvider(provider: MetadataProvider): TokenFetcher {
@@ -62,8 +72,12 @@ export class TokenFetcher {
     const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
 
     if (misses.length > 0) {
+      console.log(`Fetching mint info for ${misses.length} mints...`);
       const mintInfos = (
-        await getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo)
+        await pTimeout(
+          getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo),
+          this.timeoutMs
+        )
       ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
@@ -76,7 +90,16 @@ export class TokenFetcher {
 
       let next = misses;
       for (const provider of this.providers) {
-        const metadatas = await provider.findMany(next);
+        let metadatas: Record<string, Partial<TokenMetadata> | null>;
+        try {
+          console.log(
+            `Fetching metadata for ${next.length} mints from ${provider.constructor.name}...`
+          );
+          metadatas = await pTimeout(provider.findMany(next), this.timeoutMs);
+        } catch (e) {
+          console.warn(`Metadata provider ${provider.constructor.name} timed out. Skipping...`);
+          metadatas = {};
+        }
         next = [];
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
