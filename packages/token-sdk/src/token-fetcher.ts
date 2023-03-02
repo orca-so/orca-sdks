@@ -72,7 +72,10 @@ export class TokenFetcher {
 
   public async findMany(addresses: Address[]): Promise<ReadonlyTokenMap> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
+    const misses = mints.filter(
+      (mint) =>
+        !this._cache[mint.toBase58()] || MetadataUtil.isPartial(this._cache[mint.toBase58()])
+    );
 
     if (misses.length > 0) {
       console.log(`Fetching mint info for ${misses.length} mints...`);
