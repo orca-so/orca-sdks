@@ -19,6 +19,9 @@ interface Opts {
   cache?: Record<string, Token>;
 }
 
+type ReadonlyToken = Readonly<Token>;
+type ReadonlyTokenMap = Readonly<Record<string, ReadonlyToken>>;
+
 export class TokenFetcher {
   private readonly connection: Connection;
   private readonly _cache: Record<string, Token>;
@@ -40,7 +43,7 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address): Promise<Token> {
+  public async find(address: Address): Promise<ReadonlyToken> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (!this._cache[mintString]) {
@@ -67,7 +70,7 @@ export class TokenFetcher {
     return { ...this._cache[mintString] };
   }
 
-  public async findMany(addresses: Address[]): Promise<Readonly<Record<string, Token>>> {
+  public async findMany(addresses: Address[]): Promise<ReadonlyTokenMap> {
     const mints = AddressUtil.toPubKeys(addresses);
     const misses = mints.filter((mint) => !this._cache[mint.toBase58()]);
 
