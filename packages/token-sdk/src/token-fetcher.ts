@@ -28,7 +28,7 @@ export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
   private readonly timeoutMs: number;
 
-  private constructor(connection: Connection, opts: Opts) {
+  private constructor(connection: Connection, opts: Opts = {}) {
     this.connection = connection;
     this._cache = opts.cache ?? {};
     this.timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
@@ -47,7 +47,10 @@ export class TokenFetcher {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (!this._cache[mintString]) {
-      const mintInfo = await getParsedAccount(this.connection, mint, ParsableMintInfo);
+      const mintInfo = await pTimeout(
+        getParsedAccount(this.connection, mint, ParsableMintInfo),
+        this.timeoutMs
+      );
       invariant(mintInfo, "Mint info not found");
       this._cache[mintString] = {
         mint: mintString,
@@ -55,13 +58,7 @@ export class TokenFetcher {
       };
 
       for (const provider of this.providers) {
-        const metadata = await provider.find(mint);
-        const cachedValue = this._cache[mintString];
-        this._cache[mintString] = {
-          mint: cachedValue.mint,
-          decimals: cachedValue.decimals,
-          ...MetadataUtil.merge(cachedValue, metadata),
-        };
+        this.mergeEntry(mintString, await provider.find(mint));
         if (!MetadataUtil.isPartial(this._cache[mintString])) {
           break;
         }
@@ -80,10 +77,7 @@ export class TokenFetcher {
     if (misses.length > 0) {
       console.log(`Fetching mint info for ${misses.length} mints...`);
       const mintInfos = (
-        await pTimeout(
-          getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo),
-          this.timeoutMs
-        )
+        await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
       ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
@@ -101,7 +95,7 @@ export class TokenFetcher {
           console.log(
             `Fetching metadata for ${next.length} mints from ${provider.constructor.name}...`
           );
-          metadatas = await pTimeout(provider.findMany(next), this.timeoutMs);
+          metadatas = await this.request(provider.findMany(next));
         } catch (e) {
           console.warn(`Metadata provider ${provider.constructor.name} timed out. Skipping...`);
           metadatas = {};
@@ -109,14 +103,7 @@ export class TokenFetcher {
         next = [];
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
-          const cachedValue = this._cache[mintString];
-          if (metadatas[mintString]) {
-            this._cache[mintString] = {
-              mint: cachedValue.mint,
-              decimals: cachedValue.decimals,
-              ...MetadataUtil.merge(cachedValue, metadatas[mintString]),
-            };
-          }
+          this.mergeEntry(mintString, metadatas[mintString]);
           if (MetadataUtil.isPartial(this._cache[mintString])) {
             next.push(mint);
           }
@@ -130,5 +117,20 @@ export class TokenFetcher {
     return Object.fromEntries(
       mints.map((mint) => [mint.toBase58(), { ...this._cache[mint.toBase58()] }])
     );
+  }
+
+  private mergeEntry(mint: string, metadata: Partial<TokenMetadata> | null) {
+    const cachedValue = this._cache[mint];
+    if (metadata) {
+      this._cache[mint] = {
+        mint: cachedValue.mint,
+        decimals: cachedValue.decimals,
+        ...MetadataUtil.merge(cachedValue, metadata),
+      };
+    }
+  }
+
+  private request<T>(promise: PromiseLike<T>) {
+    return pTimeout(promise, this.timeoutMs);
   }
 }
