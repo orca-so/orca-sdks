@@ -9,7 +9,6 @@ export function removeMint(mintlistPath: string, removeMints: string[]) {
     if (index !== -1) {
       mints.splice(index, 1);
       numRemoved++;
-      continue;
     }
   }
   mints.sort();

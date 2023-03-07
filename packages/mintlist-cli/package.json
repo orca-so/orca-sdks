@@ -17,7 +17,8 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsc -p src"
+    "build": "tsc -p src",
+    "test": "jest"
   },
   "bin": {
     "mintlist": "./dist/index.js"

@@ -20,11 +20,11 @@ export class MintlistFileUtil {
   }
 
   public static validMintlistName(name: string): boolean {
-    return /^[a-z\d-]+(?=[a-z]).+\.mintlist\.json$/i.test(name);
+    return /^[a-zA-Z][a-zA-Z\d]*(-[a-zA-Z\d]+)*\.mintlist\.json$/.test(name);
   }
 
   public static validTokenlistName(name: string): boolean {
-    return /^[a-z\d-]+(?=[a-z]).+\.tokenlist\.json$/i.test(name);
+    return /^[a-zA-Z][a-zA-Z\d]*(-[a-zA-Z\d]+)*\.tokenlist\.json$/.test(name);
   }
 
   public static writeJsonSync(filePath: string, obj: any) {

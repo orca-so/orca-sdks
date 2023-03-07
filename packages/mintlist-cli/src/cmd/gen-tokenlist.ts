@@ -11,6 +11,7 @@ import { Connection } from "@solana/web3.js";
 import { existsSync, mkdirSync } from "mz/fs";
 import { MintlistFileUtil } from "../util/mintlist-file-util";
 import { resolve } from "path";
+import path from "node:path";
 
 export async function genTokenlist(paths: string[], opts: any) {
   if (!isOpts(opts)) {
@@ -54,8 +55,8 @@ async function createFetcher(opts: Opts): Promise<TokenFetcher> {
   return fetcher;
 }
 
-function getFileName(path: string): string {
-  const name = path.split("/").pop();
+function getFileName(filePath: string): string {
+  const name = filePath.split(path.sep).pop();
   if (!name) {
     throw new Error("Invalid path");
   }
