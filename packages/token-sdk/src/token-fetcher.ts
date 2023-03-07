@@ -57,7 +57,13 @@ export class TokenFetcher {
       };
 
       for (const provider of this.providers) {
-        this.mergeEntry(mintString, await provider.find(mint));
+        try {
+          const metadata = await this.request(provider.find(address));
+          this._cache[mintString] = mergeMetadata(this._cache[mintString], metadata);
+        } catch (err) {
+          console.warn(`Failed to fetch from ${provider.constructor.name}: ${err}`);
+          continue;
+        }
         if (!MetadataUtil.isPartial(this._cache[mintString])) {
           break;
         }
@@ -99,7 +105,7 @@ export class TokenFetcher {
         next = [];
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
-          this.mergeEntry(mintString, metadatas[mintString]);
+          this._cache[mintString] = mergeMetadata(this._cache[mintString], metadatas[mintString]);
           if (MetadataUtil.isPartial(this._cache[mintString])) {
             next.push(mint);
           }
@@ -115,17 +121,6 @@ export class TokenFetcher {
     );
   }
 
-  private mergeEntry(mint: string, metadata: Partial<TokenMetadata> | null) {
-    const cachedValue = this._cache[mint];
-    if (metadata) {
-      this._cache[mint] = {
-        mint: cachedValue.mint,
-        decimals: cachedValue.decimals,
-        ...MetadataUtil.merge(cachedValue, metadata),
-      };
-    }
-  }
-
   private contains(mint: string): boolean {
     return !!this._cache[mint] && !MetadataUtil.isPartial(this._cache[mint]);
   }
@@ -133,4 +128,15 @@ export class TokenFetcher {
   private request<T>(promise: PromiseLike<T>) {
     return pTimeout(promise, this.timeoutMs);
   }
+}
+
+function mergeMetadata(token: Token, metadata: Partial<TokenMetadata> | null): Token {
+  if (metadata === null) {
+    return token;
+  }
+  return {
+    mint: token.mint,
+    decimals: token.decimals,
+    ...MetadataUtil.merge(token, metadata),
+  };
 }
