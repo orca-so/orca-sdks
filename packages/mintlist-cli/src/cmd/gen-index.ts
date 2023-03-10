@@ -52,7 +52,9 @@ function toImportLine(filePath: string, outPath: string): string {
   if (!fileName) {
     throw new Error("Invalid path");
   }
-  return `import ${toImportIdentifier(fileName)} from "./${relative(outPath, filePath)}";`;
+  return `import ${toImportIdentifier(fileName)} from "./${relative(outPath, filePath)
+    .split(path.sep)
+    .join("/")}";`;
 }
 
 function toImportIdentifier(name: string): string {

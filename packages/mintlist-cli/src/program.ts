@@ -32,7 +32,7 @@ program
     "Output directory for generated tokenlists",
     "./src/tokenlists"
   )
-  .option("--overrides <file>", "Path to overrides file", "./src/overrides.json")
+  .option("--overrides <file>", "Path to overrides file")
   .action(genTokenlist);
 
 program
