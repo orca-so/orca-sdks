@@ -77,7 +77,6 @@ export class TokenFetcher {
     const misses = mints.filter((mint) => !this.contains(mint.toBase58()));
 
     if (misses.length > 0) {
-      console.log(`Fetching mint info for ${misses.length} mints...`);
       const mintInfos = (
         await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
       ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
@@ -94,9 +93,6 @@ export class TokenFetcher {
       for (const provider of this.providers) {
         let metadatas: Record<string, Partial<TokenMetadata> | null>;
         try {
-          console.log(
-            `Fetching metadata for ${next.length} mints from ${provider.constructor.name}...`
-          );
           metadatas = await this.request(provider.findMany(next));
         } catch (e) {
           console.warn(`Metadata provider ${provider.constructor.name} timed out. Skipping...`);
