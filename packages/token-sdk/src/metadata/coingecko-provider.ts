@@ -3,9 +3,9 @@ import { Address } from "@project-serum/anchor";
 import { CoinGeckoClient, CoinGeckoHttpClient, ContractResponse } from "./client/coingecko-client";
 import {
   MetadataProvider,
-  TokenMetadata,
   ReadonlyTokenMetadata,
   ReadonlyTokenMetadataMap,
+  TokenMetadata,
 } from "./types";
 import PQueue from "p-queue";
 
@@ -48,7 +48,7 @@ export class CoinGeckoProvider implements MetadataProvider {
   }
 }
 
-function convertToTokenMetadata(contract: ContractResponse | null): Partial<TokenMetadata | null> {
+function convertToTokenMetadata(contract: ContractResponse | null): Partial<TokenMetadata> | null {
   if (!contract) {
     return null;
   }

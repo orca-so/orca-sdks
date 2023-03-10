@@ -3,14 +3,14 @@ import { Connection } from "@solana/web3.js";
 import { Address } from "@project-serum/anchor";
 import {
   MetadataProvider,
-  TokenMetadata,
   ReadonlyTokenMetadata,
   ReadonlyTokenMetadataMap,
+  TokenMetadata,
 } from "./types";
 import { AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 
-const DEFAULT_CONCURRENCY = 100;
+const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
 
 interface Opts {

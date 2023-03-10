@@ -4,12 +4,12 @@ import PQueue from "p-queue";
 import { SolanaFmClient, SolanaFmHttpClient, TokenResult } from "./client";
 import {
   MetadataProvider,
-  TokenMetadata,
   ReadonlyTokenMetadata,
   ReadonlyTokenMetadataMap,
+  TokenMetadata,
 } from "./types";
 
-const DEFAULT_CONCURRENCY = 100;
+const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
 
 interface Opts {

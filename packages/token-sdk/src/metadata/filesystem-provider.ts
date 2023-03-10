@@ -8,7 +8,7 @@ import {
 } from "./types";
 
 export class FileSystemProvider implements MetadataProvider {
-  constructor(private readonly _cache: Record<string, Partial<TokenMetadata>> = {}) {}
+  constructor(private readonly _cache: Record<string, Partial<TokenMetadata> | null> = {}) {}
 
   find(address: Address): Promise<ReadonlyTokenMetadata> {
     const mint = AddressUtil.toPubKey(address).toBase58();
