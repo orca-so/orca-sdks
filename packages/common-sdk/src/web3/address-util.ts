@@ -18,6 +18,14 @@ export class AddressUtil {
     return addresses.map((address) => AddressUtil.toPubKey(address));
   }
 
+  public static toString(address: Address): string {
+    return AddressUtil.toPubKey(address).toBase58();
+  }
+
+  public static toStrings(addresses: Address[]): string[] {
+    return addresses.map((address) => AddressUtil.toString(address));
+  }
+
   public static findProgramAddress(seeds: (Uint8Array | Buffer)[], programId: PublicKey): PDA {
     const [publicKey, bump] = utils.publicKey.findProgramAddressSync(seeds, programId);
     return { publicKey, bump };
