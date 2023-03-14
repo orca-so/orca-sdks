@@ -15,6 +15,11 @@ export function bump({ before, after }: BumpOptions) {
     console.log("No changes to mintlists detected");
     return;
   }
+
+  if (!hasAddedMints(before, after)) {
+    console.log("No new mints detected");
+    return;
+  }
 }
 
 // Diffs two mintlist.json files and determines whether any mints were added
