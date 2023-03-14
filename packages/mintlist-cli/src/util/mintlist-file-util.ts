@@ -1,13 +1,22 @@
 import { Mintlist, TokenMetadata } from "@orca-so/token-sdk";
 import { readFileSync, writeFileSync } from "mz/fs";
 import { resolve } from "path";
+import path from "node:path";
 
 export class MintlistFileUtil {
   public static readMintlistSync(filePath: string): Mintlist {
     try {
-      return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as Mintlist;
+      return this.fromString(readFileSync(resolve(filePath), "utf-8"));
     } catch (e) {
       throw new Error(`Failed to parse mintlist at ${filePath}`);
+    }
+  }
+
+  public static fromString(str: string): Mintlist {
+    try {
+      return JSON.parse(str) as Mintlist;
+    } catch (e) {
+      throw new Error(`Failed to parse mintlist from string`);
     }
   }
 
@@ -35,6 +44,14 @@ export class MintlistFileUtil {
     } catch (e) {
       throw new Error(`Failed to write tokenlist at ${filePath}`);
     }
+  }
+
+  public static getFileName(filePath: string): string {
+    const name = filePath.split(path.sep).pop();
+    if (!name) {
+      throw new Error("Invalid path");
+    }
+    return name;
   }
 }
 
