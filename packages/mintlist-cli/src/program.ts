@@ -3,6 +3,7 @@ import { genTokenlist } from "./cmd/gen-tokenlist";
 import { genIndex } from "./cmd/gen-index";
 import { addMint } from "./cmd/add-mint";
 import { removeMint } from "./cmd/remove-mint";
+import { bump } from "./cmd/bump";
 
 const program = new Command();
 
@@ -45,5 +46,12 @@ program
   )
   .requiredOption("--outDir <string>", "Output directory for generated index.ts", "./src")
   .action(genIndex);
+
+program
+  .command("bump")
+  .description("Bump package version")
+  .requiredOption("--before <string>", "Commit hash before bump", "HEAD~1")
+  .requiredOption("--after <string>", "Commit hash after bump", "HEAD")
+  .action(bump);
 
 export default program;
