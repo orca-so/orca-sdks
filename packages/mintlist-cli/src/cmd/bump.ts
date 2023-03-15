@@ -16,8 +16,9 @@ type VersionChange = "major" | "minor" | "patch";
  * If the only change is removed mints, a patch version bump is performed.
  *
  * Exit codes:
- * 0 - Successful version change
- * 1 - No version change
+ * 0 - No version bump
+ * 1 - Error occurred
+ * 2 - Version bumped
  */
 export function bump({ before, after }: BumpOptions) {
   if (!hasDeps()) {
@@ -32,12 +33,14 @@ export function bump({ before, after }: BumpOptions) {
 
   const versionChange = getVersionChange(before, after);
   if (!versionChange) {
-    process.exit(1);
+    console.log("No version change");
+    process.exit(0);
   }
 
   execSync("npm config set commit-hooks=false");
   const version = execSync(`npm version ${versionChange}`, { encoding: "utf-8" }).trim();
   console.log(`Bumped to ${version}`);
+  process.exit(2);
 }
 
 function getVersionChange(before: string, after: string) {
