@@ -40,9 +40,9 @@ export class MintlistFileUtil {
     try {
       const fullPath = resolve(filePath);
       const json = JSON.stringify(obj, null, 2);
-      writeFileSync(fullPath, json);
+      writeFileSync(fullPath, json + "\n");
     } catch (e) {
-      throw new Error(`Failed to write tokenlist at ${filePath}`);
+      throw new Error(`Failed to write file at ${filePath}`);
     }
   }
 

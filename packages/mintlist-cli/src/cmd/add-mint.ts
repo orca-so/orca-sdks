@@ -28,5 +28,9 @@ export function addMint(mintlistPath: string, addMints: string[]) {
   mintlist.mints = mints;
   MintlistFileUtil.writeJsonSync(mintlistPath, mintlist);
 
-  console.log(`Added ${addedMints.length} mints to ${mintlist.name}:\n${addedMints.join("\n")}`);
+  if (addedMints.length === 0) {
+    console.log("No mints added");
+  } else {
+    console.log(`Added ${addedMints.length} mints to ${mintlist.name}:\n${addedMints.join("\n")}`);
+  }
 }
