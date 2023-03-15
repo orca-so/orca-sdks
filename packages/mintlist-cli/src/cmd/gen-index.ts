@@ -28,7 +28,7 @@ export function genIndex(opts: any) {
     mkdirSync(outPath);
   }
 
-  writeFileSync(`${outPath}/${outFile}.ts`, contents);
+  writeFileSync(`${outPath}/${outFile}`, contents);
 }
 
 function toExportLine(filePath: string): string {
