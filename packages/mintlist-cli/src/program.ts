@@ -45,6 +45,7 @@ program
     "./src"
   )
   .requiredOption("--outDir <string>", "Output directory for generated index.ts", "./src")
+  .requiredOption("--outFile <string>", "Output file name", "index.ts")
   .action(genIndex);
 
 program
