@@ -36,7 +36,6 @@ export function bump({ before, after }: BumpOptions) {
     return;
   }
 
-  execSync("npm config set commit-hooks=false");
   const version = execSync(`npm version ${versionChange}`, { encoding: "utf-8" }).trim();
   console.log(`${version}`);
 }
