@@ -9,6 +9,16 @@ interface BumpOptions {
 
 type VersionChange = "major" | "minor" | "patch";
 
+/**
+ * Bumps the version of the package based on the changes in the mintlists.
+ * If a mintlist is added or removed, a major version bump is performed.
+ * If the only change is added mints, a minor version bump is performed.
+ * If the only change is removed mints, a patch version bump is performed.
+ *
+ * Exit codes:
+ * 0 - Successful version change
+ * 1 - No version change
+ */
 export function bump({ before, after }: BumpOptions) {
   if (!hasDeps()) {
     console.log("npm and git must be installed and in the PATH");
@@ -22,7 +32,7 @@ export function bump({ before, after }: BumpOptions) {
 
   const versionChange = getVersionChange(before, after);
   if (!versionChange) {
-    return;
+    process.exit(1);
   }
 
   execSync("npm config set commit-hooks=false");
