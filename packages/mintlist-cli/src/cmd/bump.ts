@@ -1,6 +1,6 @@
 import { Mintlist } from "@orca-so/token-sdk";
 import { execSync } from "child_process";
-import { MintlistFileUtil } from "../util/mintlist-file-util";
+import { MetadataOverrides, MintlistFileUtil } from "../util/mintlist-file-util";
 
 interface BumpOptions {
   before: string;
@@ -13,12 +13,7 @@ type VersionChange = "major" | "minor" | "patch";
  * Bumps the version of the package based on the changes in the mintlists.
  * If a mintlist is added or removed, a major version bump is performed.
  * If the only change is added mints, a minor version bump is performed.
- * If the only change is removed mints, a patch version bump is performed.
- *
- * Exit codes:
- * 0 - No version bump
- * 1 - Error occurred
- * 2 - Version bumped
+ * If the only change is removed mints or updated overrides, a patch version bump is performed.
  */
 export function bump({ before, after }: BumpOptions) {
   if (!hasDeps()) {
@@ -40,19 +35,47 @@ export function bump({ before, after }: BumpOptions) {
   console.log(`${version}`);
 }
 
-function getVersionChange(before: string, after: string) {
-  let versionChange: VersionChange | undefined;
+function getVersionChange(before: string, after: string): VersionChange | undefined {
   if (hasMintlistChanges(before, after)) {
-    versionChange = "major";
-  } else {
-    const { hasAdded, hasRemoved } = diffMintlists(before, after);
-    if (hasRemoved) {
-      versionChange = "minor";
-    } else if (hasAdded) {
-      versionChange = "patch";
+    return "major";
+  }
+  const { hasAdded, hasRemoved } = diffMintlists(before, after);
+  if (hasRemoved) {
+    return "minor";
+  }
+  if (hasAdded || diffOverrides(before, after)) {
+    return "patch";
+  }
+}
+
+function diffOverrides(before: string, after: string): boolean {
+  const beforeOverrides = MintlistFileUtil.fromString<MetadataOverrides>(
+    execSync(`git show ${before}:src/overrides.json`, {
+      encoding: "utf-8",
+    })
+  );
+  const afterOverrides = MintlistFileUtil.fromString<MetadataOverrides>(
+    execSync(`git show ${after}:src/overrides.json`, {
+      encoding: "utf-8",
+    })
+  );
+
+  if (Object.keys(beforeOverrides).length !== Object.keys(afterOverrides).length) {
+    return true;
+  }
+
+  for (const [mint, metadata] of Object.entries(beforeOverrides)) {
+    if (
+      !afterOverrides[mint] ||
+      metadata.image !== afterOverrides[mint].image ||
+      metadata.name !== afterOverrides[mint].name ||
+      metadata.symbol !== afterOverrides[mint].symbol
+    ) {
+      return true;
     }
   }
-  return versionChange;
+
+  return false;
 }
 
 function diffMintlists(before: string, after: string): { hasAdded: boolean; hasRemoved: boolean } {
@@ -69,10 +92,10 @@ function diffMintlists(before: string, after: string): { hasAdded: boolean; hasR
       continue;
     }
 
-    const beforeFile = MintlistFileUtil.fromString(
+    const beforeFile = MintlistFileUtil.fromString<Mintlist>(
       execSync(`git show ${before}:${filePath}`, { encoding: "utf-8" })
     );
-    const afterFile = MintlistFileUtil.fromString(
+    const afterFile = MintlistFileUtil.fromString<Mintlist>(
       execSync(`git show ${after}:${filePath}`, { encoding: "utf-8" })
     );
     if (hasAddedMints(beforeFile, afterFile)) {

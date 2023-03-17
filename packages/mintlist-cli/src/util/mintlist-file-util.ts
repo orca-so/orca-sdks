@@ -6,17 +6,9 @@ import path from "node:path";
 export class MintlistFileUtil {
   public static readMintlistSync(filePath: string): Mintlist {
     try {
-      return this.fromString(readFileSync(resolve(filePath), "utf-8"));
+      return this.fromString<Mintlist>(readFileSync(resolve(filePath), "utf-8"));
     } catch (e) {
       throw new Error(`Failed to parse mintlist at ${filePath}`);
-    }
-  }
-
-  public static fromString(str: string): Mintlist {
-    try {
-      return JSON.parse(str) as Mintlist;
-    } catch (e) {
-      throw new Error(`Failed to parse mintlist from string`);
     }
   }
 
@@ -25,6 +17,14 @@ export class MintlistFileUtil {
       return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as MetadataOverrides;
     } catch (e) {
       throw new Error(`Failed to parse overrides at ${filePath}`);
+    }
+  }
+
+  public static fromString<T>(str: string): T {
+    try {
+      return JSON.parse(str) as T;
+    } catch (e) {
+      throw new Error(`Failed to parse from string`);
     }
   }
 
@@ -55,4 +55,4 @@ export class MintlistFileUtil {
   }
 }
 
-type MetadataOverrides = Record<string, Partial<TokenMetadata>>;
+export type MetadataOverrides = Record<string, Partial<TokenMetadata>>;
