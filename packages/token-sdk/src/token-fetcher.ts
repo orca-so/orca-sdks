@@ -14,28 +14,23 @@ import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
-interface Opts {
-  timeoutMs?: number;
-  cache?: Record<string, Token>;
-}
-
 type ReadonlyToken = Readonly<Token>;
 type ReadonlyTokenMap = Readonly<Record<string, ReadonlyToken>>;
 
 export class TokenFetcher {
   private readonly connection: Connection;
-  private readonly _cache: Record<string, Token>;
   private readonly providers: MetadataProvider[] = [];
   private readonly timeoutMs: number;
+  private _cache: Record<string, Token> = {};
 
-  private constructor(connection: Connection, opts: Opts = {}) {
+  constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
     this.connection = connection;
-    this._cache = opts.cache ?? {};
-    this.timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
+    this.timeoutMs = timeoutMs;
   }
 
-  public static from(connection: Connection, opts: Opts = {}): TokenFetcher {
-    return new TokenFetcher(connection, opts);
+  public setCache(cache: Record<string, Token>): TokenFetcher {
+    this._cache = cache;
+    return this;
   }
 
   public addProvider(provider: MetadataProvider): TokenFetcher {
