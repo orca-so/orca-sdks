@@ -4,7 +4,7 @@ import { MintlistFileUtil } from "../util/mintlist-file-util";
 export function addMint(mintlistPath: string, addMints: string[]) {
   let mintlist = MintlistFileUtil.readMintlistSync(mintlistPath);
   const mints = mintlist.mints;
-  const addedMints = [];
+  let numAdded = 0;
   for (const mint of addMints) {
     // Check mint is valid pubkey
     try {
@@ -17,20 +17,17 @@ export function addMint(mintlistPath: string, addMints: string[]) {
     // Check mint doesn't already exist
     const exists = mints.indexOf(mint) !== -1;
     if (exists) {
+      console.log(`Mint ${mint} already exists in ${mintlist.name} (${mintlistPath})`);
       continue;
     }
 
     mints.push(mint);
-    addedMints.push(mint);
+    numAdded++;
   }
 
   mints.sort();
   mintlist.mints = mints;
   MintlistFileUtil.writeJsonSync(mintlistPath, mintlist);
 
-  if (addedMints.length === 0) {
-    console.log("No mints added");
-  } else {
-    console.log(`Added ${addedMints.length} mints to ${mintlist.name}:\n${addedMints.join("\n")}`);
-  }
+  console.log(`Added ${numAdded} mints to ${mintlist.name} (${mintlistPath})`);
 }

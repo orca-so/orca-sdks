@@ -11,6 +11,7 @@ import { Connection } from "@solana/web3.js";
 import { existsSync, mkdirSync } from "mz/fs";
 import { MintlistFileUtil } from "../util/mintlist-file-util";
 import { resolve } from "path";
+import path from "node:path";
 
 export async function genTokenlist(paths: string[], opts: any) {
   if (!isOpts(opts)) {
@@ -23,10 +24,10 @@ export async function genTokenlist(paths: string[], opts: any) {
   }
 
   const params = paths
-    .filter((path) => MintlistFileUtil.validMintlistName(MintlistFileUtil.getFileName(path)))
+    .filter((path) => MintlistFileUtil.validMintlistName(getFileName(path)))
     .map((path) => ({
       path: resolve(path),
-      tokenlistPath: `${outPath}/${toTokenlistFileName(MintlistFileUtil.getFileName(path))}`,
+      tokenlistPath: `${outPath}/${toTokenlistFileName(getFileName(path))}`,
       mintlist: MintlistFileUtil.readMintlistSync(path),
     }));
 
@@ -52,6 +53,14 @@ async function createFetcher(opts: Opts): Promise<TokenFetcher> {
       new CoinGeckoProvider({ concurrency: 1, intervalMs: 1000, apiKey: process.env.CG_API_KEY })
     );
   return fetcher;
+}
+
+function getFileName(filePath: string): string {
+  const name = filePath.split(path.sep).pop();
+  if (!name) {
+    throw new Error("Invalid path");
+  }
+  return name;
 }
 
 function toTokenlistFileName(mintlistName: string): string {
