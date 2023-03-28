@@ -1,11 +1,12 @@
 import { Mintlist, TokenMetadata } from "@orca-so/token-sdk";
 import { readFileSync, writeFileSync } from "mz/fs";
 import { resolve } from "path";
+import path from "node:path";
 
 export class MintlistFileUtil {
   public static readMintlistSync(filePath: string): Mintlist {
     try {
-      return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as Mintlist;
+      return this.fromString<Mintlist>(readFileSync(resolve(filePath), "utf-8"));
     } catch (e) {
       throw new Error(`Failed to parse mintlist at ${filePath}`);
     }
@@ -16,6 +17,14 @@ export class MintlistFileUtil {
       return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as MetadataOverrides;
     } catch (e) {
       throw new Error(`Failed to parse overrides at ${filePath}`);
+    }
+  }
+
+  public static fromString<T>(str: string): T {
+    try {
+      return JSON.parse(str) as T;
+    } catch (e) {
+      throw new Error(`Failed to parse from string`);
     }
   }
 
@@ -31,11 +40,19 @@ export class MintlistFileUtil {
     try {
       const fullPath = resolve(filePath);
       const json = JSON.stringify(obj, null, 2);
-      writeFileSync(fullPath, json);
+      writeFileSync(fullPath, json + "\n");
     } catch (e) {
-      throw new Error(`Failed to write tokenlist at ${filePath}`);
+      throw new Error(`Failed to write file at ${filePath}`);
     }
+  }
+
+  public static getFileName(filePath: string): string {
+    const name = filePath.split(path.sep).pop();
+    if (!name) {
+      throw new Error("Invalid path");
+    }
+    return name;
   }
 }
 
-type MetadataOverrides = Record<string, Partial<TokenMetadata>>;
+export type MetadataOverrides = Record<string, Partial<TokenMetadata>>;
