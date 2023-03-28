@@ -59,7 +59,7 @@ describe("token-fetcher", () => {
     expect(p0.getCount(mint)).toEqual(1);
   });
 
-  it("partial cache miss overwrites with new fetch", async () => {
+  it("cache entry with partial metadata is cache hit", async () => {
     const token = await createNewMint(ctx, 9);
     const mint = token.publicKey.toBase58();
     const p1 = new FileSystemProvider({
@@ -71,6 +71,44 @@ describe("token-fetcher", () => {
       })
       .addProvider(p1);
     const metadata = await fetcher.find(mint);
+    expect(metadata.name).toEqual("ORIGINAL_TOKEN_NAME");
+    expect(metadata.symbol).toBeUndefined();
+    expect(metadata.image).toBeUndefined();
+    expect(metadata.decimals).toEqual(9);
+    expect(metadata.mint).toEqual(mint);
+  });
+
+  it("find with refresh fetches new data", async () => {
+    const token = await createNewMint(ctx, 9);
+    const mint = token.publicKey.toBase58();
+    const p1 = new FileSystemProvider({
+      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
+    });
+    const fetcher = new TokenFetcher(ctx.connection)
+      .setCache({
+        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
+      })
+      .addProvider(p1);
+    const metadata = await fetcher.find(mint, true);
+    expect(metadata.name).toEqual("TOKEN_NAME");
+    expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
+    expect(metadata.image).toEqual("TOKEN_IMAGE");
+    expect(metadata.decimals).toEqual(9);
+    expect(metadata.mint).toEqual(mint);
+  });
+
+  it("findMany with refresh fetches new data", async () => {
+    const token = await createNewMint(ctx, 9);
+    const mint = token.publicKey.toBase58();
+    const p1 = new FileSystemProvider({
+      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
+    });
+    const fetcher = new TokenFetcher(ctx.connection)
+      .setCache({
+        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
+      })
+      .addProvider(p1);
+    const metadata = (await fetcher.findMany([mint], true))[mint];
     expect(metadata.name).toEqual("TOKEN_NAME");
     expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
     expect(metadata.image).toEqual("TOKEN_IMAGE");

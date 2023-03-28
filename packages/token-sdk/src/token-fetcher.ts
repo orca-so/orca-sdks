@@ -38,10 +38,10 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address): Promise<ReadonlyToken> {
+  public async find(address: Address, refresh: boolean = false): Promise<ReadonlyToken> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
-    if (!this.contains(mintString)) {
+    if (refresh || !this.contains(mintString)) {
       const mintInfo = await this.request(
         getParsedAccount(this.connection, mint, ParsableMintInfo)
       );
@@ -67,9 +67,9 @@ export class TokenFetcher {
     return { ...this._cache[mintString] };
   }
 
-  public async findMany(addresses: Address[]): Promise<ReadonlyTokenMap> {
+  public async findMany(addresses: Address[], refresh: boolean = false): Promise<ReadonlyTokenMap> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const misses = mints.filter((mint) => !this.contains(mint.toBase58()));
+    const misses = refresh ? mints : mints.filter((mint) => !this.contains(mint.toBase58()));
 
     if (misses.length > 0) {
       const mintInfos = (
@@ -113,7 +113,7 @@ export class TokenFetcher {
   }
 
   private contains(mint: string): boolean {
-    return !!this._cache[mint] && !MetadataUtil.isPartial(this._cache[mint]);
+    return !!this._cache[mint];
   }
 
   private request<T>(promise: PromiseLike<T>) {
