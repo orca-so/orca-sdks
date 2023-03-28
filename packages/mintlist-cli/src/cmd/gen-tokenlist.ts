@@ -41,7 +41,7 @@ async function createFetcher(opts: Opts): Promise<TokenFetcher> {
     throw new Error("SOLANA_NETWORK must be set");
   }
   const connection = new Connection(process.env.SOLANA_NETWORK);
-  const fetcher = TokenFetcher.from(connection);
+  const fetcher = new TokenFetcher(connection);
   if (opts.overrides) {
     fetcher.addProvider(new FileSystemProvider(MintlistFileUtil.readOverridesSync(opts.overrides)));
   }

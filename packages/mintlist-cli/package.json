@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "dependencies": {
-    "@orca-so/token-sdk": "^0.1.5-alpha.0",
+    "@orca-so/token-sdk": "^0.1.5-alpha.2",
     "@solana/web3.js": "^1.73.3",
     "commander": "^10.0.0",
     "mz": "^2.7.0"
