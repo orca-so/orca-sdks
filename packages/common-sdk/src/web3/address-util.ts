@@ -19,6 +19,9 @@ export class AddressUtil {
   }
 
   public static toString(address: Address): string {
+    if (typeof address === "string") {
+      return address;
+    }
     return AddressUtil.toPubKey(address).toBase58();
   }
 

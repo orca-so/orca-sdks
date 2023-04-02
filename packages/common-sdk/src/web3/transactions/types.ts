@@ -1,4 +1,10 @@
-import { Transaction, Signer, TransactionInstruction } from "@solana/web3.js";
+import {
+  BlockhashWithExpiryBlockHeight,
+  Signer,
+  Transaction,
+  TransactionInstruction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 
 /**
  * @category Transactions Util
@@ -22,12 +28,14 @@ export type Instruction = {
  * @category Transactions Util
  */
 export type TransactionPayload = {
-  transaction: Transaction;
+  transaction: Transaction | VersionedTransaction;
   signers: Signer[];
+  recentBlockhash: BlockhashWithExpiryBlockHeight;
 };
 
 /**
  * @category Transactions Util
+ * @deprecated
  */
 export type SendTxRequest = {
   transaction: Transaction;

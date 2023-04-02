@@ -2,12 +2,15 @@ import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
 import { Commitment, Connection, PublicKey, Signer, Transaction } from "@solana/web3.js";
 import { SendTxRequest } from "./types";
 
+/**
+ * @deprecated
+ */
 export class TransactionProcessor {
   constructor(
     readonly connection: Connection,
     readonly wallet: Wallet,
     readonly commitment: Commitment = "confirmed"
-  ) { }
+  ) {}
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction;
@@ -69,11 +72,14 @@ export class TransactionProcessor {
     };
 
     const confirmTx = async (txId: string) => {
-      const result = await this.connection.confirmTransaction({
-        signature: txId,
-        lastValidBlockHeight: lastValidBlockHeight,
-        blockhash,
-      }, this.commitment);
+      const result = await this.connection.confirmTransaction(
+        {
+          signature: txId,
+          lastValidBlockHeight: lastValidBlockHeight,
+          blockhash,
+        },
+        this.commitment
+      );
 
       if (result.value.err) {
         throw new Error(`Transaction failed: ${JSON.stringify(result.value)}`);
