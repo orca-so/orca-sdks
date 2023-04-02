@@ -12,3 +12,5 @@ test-ledger/
 .vscode/
 dist/
 .DS_store
+**/.yalc/
+**/yalc.lock
