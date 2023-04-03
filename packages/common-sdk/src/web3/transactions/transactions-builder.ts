@@ -1,9 +1,6 @@
-import { AnchorProvider } from "@coral-xyz/anchor";
 import {
   AddressLookupTableAccount,
-  Commitment,
-  ConfirmOptions,
-  Connection,
+  Commitment, Connection,
   SendOptions,
   Signer,
   Transaction,
@@ -14,6 +11,7 @@ import {
 import { Wallet } from "../wallet";
 import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
+
 
 /** 
   Build options when building a transaction using TransactionBuilder
@@ -261,24 +259,6 @@ export class TransactionBuilder {
       const { execute } = await tp.signAndConstructTransaction({ ...btx, transaction: txn });
       return execute();
     }
-  }
-
-  /**
-   * Send multiple transactions at once.
-   * @deprecated This method is here for legacy reasons and we prefer the use of TransactionProcessor
-   */
-  static async sendAll(
-    provider: AnchorProvider,
-    txns: TransactionBuilder[],
-    opts?: ConfirmOptions
-  ) {
-    const txRequest = await Promise.all(
-      txns.map(async (txBuilder) => {
-        const { transaction, signers } = await txBuilder.build();
-        return { tx: transaction, signers };
-      })
-    );
-    return await provider.sendAll(txRequest, opts);
   }
 }
 

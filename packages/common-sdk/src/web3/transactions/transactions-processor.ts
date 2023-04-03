@@ -1,5 +1,5 @@
-import { Wallet } from "@project-serum/anchor/dist/cjs/provider";
 import { Commitment, Connection, PublicKey, Signer, Transaction } from "@solana/web3.js";
+import { Wallet } from "../wallet";
 import { SendTxRequest } from "./types";
 
 /**
@@ -10,7 +10,7 @@ export class TransactionProcessor {
     readonly connection: Connection,
     readonly wallet: Wallet,
     readonly commitment: Commitment = "confirmed"
-  ) {}
+  ) { }
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction;
