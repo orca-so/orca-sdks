@@ -12,9 +12,6 @@
     "axios": "^0.27.2",
     "decimal.js": "^10.3.1"
   },
-  "resolutions": {
-    "@solana/web3.js": "1.43.1"
-  },
   "devDependencies": {
     "@types/bn.js": "~5.1.0",
     "@types/decimal.js": "^7.4.0",
