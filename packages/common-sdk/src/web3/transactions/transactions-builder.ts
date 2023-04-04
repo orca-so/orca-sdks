@@ -28,7 +28,7 @@ import { Instruction, TransactionPayload } from "./types";
   table accounts to use when building the transaction. This is only used
   when maxSupportedTransactionVersion is set to a number.
  */
-export type BuildOptions = LegacyBuildOption | v0BuildOption;
+export type BuildOptions = LegacyBuildOption | V0BuildOption;
 
 export const defaultBuildOptions: BuildOptions = {
   blockhashCommitment: "confirmed",
@@ -45,7 +45,7 @@ type LegacyBuildOption = {
   maxSupportedTransactionVersion: "legacy";
 } & BaseBuildOption;
 
-type v0BuildOption = {
+type V0BuildOption = {
   maxSupportedTransactionVersion: number;
   lookupTableAccounts?: AddressLookupTableAccount[];
 } & BaseBuildOption;

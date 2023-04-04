@@ -14,13 +14,19 @@ type OrcaLookupTableModel = {
  * ALT lookup for transactions.
  */
 export class OrcaLookupTableFetcher implements LookupTableFetcher {
+  // TODO: Cached values here need an invalidation path to prevent stale data
   private resolvedAltCache: { [key: string]: AddressLookupTableAccount } = {};
   private localLutCache: { [key: string]: LookupTable } = {};
   private localCacheMiss: Set<string> = new Set();
   private reverseAddressIndex: { [key: string]: Set<string> } = {};
 
-  constructor(readonly server: AxiosInstance, readonly connection: Connection) {}
+  constructor(readonly server: AxiosInstance, readonly connection: Connection) { }
 
+  /**
+   * Query the Orca server for lookup tables for the given addresses and load it into cache.
+   * @param addresses - The addresses to query for. Only a maximum of 50 address is supported.
+   * @returns The lookup tables for the given addresses.
+   */
   async loadLookupTables(addresses: PublicKey[]): Promise<LookupTable[]> {
     // Server request ~ 200ms
 
@@ -74,6 +80,11 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
     return [];
   }
 
+  /**
+   * Fetches the AddressLookupTableAccount for the given addresses.
+   * @param addresses - The addresses to fetch the lookup table accounts for. Only a maximum of 50 address is supported.
+   * @returns The AddressLookupTableAccount for the given addresses.
+   */
   async getLookupTableAccountsForAddresses(
     addresses: PublicKey[]
   ): Promise<AddressLookupTableAccount[]> {
@@ -109,7 +120,6 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
           indexed = new Set();
         }
         indexed.add(address);
-        this.reverseAddressIndex[containedAddr] = indexed;
       }
     }
 

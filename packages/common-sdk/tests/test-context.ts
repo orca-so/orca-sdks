@@ -1,6 +1,6 @@
 import { Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import TestWallet from "./utils.ts/test-wallet";
+import TestWallet from "./utils/test-wallet";
 export const DEFAULT_RPC_ENDPOINT_URL = "http://localhost:8899";
 
 export interface TestContext {

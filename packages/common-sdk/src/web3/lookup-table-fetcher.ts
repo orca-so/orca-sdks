@@ -15,7 +15,7 @@ export interface LookupTableFetcher {
    * Given a set of public key addresses, fetches the lookup table accounts that contains these addresses
    * and caches them for future lookups.
    * @param addresses The addresses to fetch lookup tables for.
-   * @return The lookup table accounts that contains the given addresses.
+   * @return The lookup tables that contains the given addresses.
    */
   loadLookupTables(addresses: PublicKey[]): Promise<LookupTable[]>;
 
