@@ -237,8 +237,9 @@ export class TransactionBuilder {
     const txn = btx.transaction;
 
     if (isVersionedTransaction(txn)) {
-      txn.sign(btx.signers);
       const signedTxn = await this.wallet.signTransaction(txn);
+      txn.sign(btx.signers);
+
       const txId = await this.connection.sendTransaction(signedTxn, sendOpts);
 
       const result = await this.connection.confirmTransaction(

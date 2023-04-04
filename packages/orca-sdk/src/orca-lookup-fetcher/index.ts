@@ -118,6 +118,7 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
         let indexed = this.reverseAddressIndex[containedAddr];
         if (!indexed) {
           indexed = new Set();
+          this.reverseAddressIndex[containedAddr] = indexed;
         }
         indexed.add(address);
       }
