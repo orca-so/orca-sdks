@@ -206,12 +206,14 @@ export class TransactionBuilder {
       };
     }
 
+
+    const { lookupTableAccounts } = opts;
     const txnMsg = new TransactionMessage({
       recentBlockhash: recentBlockhash.blockhash,
       payerKey: this.wallet.publicKey,
       instructions: ix.instructions,
     });
-    const msg = txnMsg.compileToV0Message();
+    const msg = txnMsg.compileToV0Message(lookupTableAccounts);
     const v0txn = new VersionedTransaction(msg);
 
     return {
