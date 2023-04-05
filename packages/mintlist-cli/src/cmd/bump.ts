@@ -12,8 +12,8 @@ type VersionChange = "major" | "minor" | "patch";
 /**
  * Bumps the version of the package based on the changes in the mintlists.
  * If a mintlist is added or removed, a major version bump is performed.
- * If the only change is added mints, a minor version bump is performed.
- * If the only change is removed mints or updated overrides, a patch version bump is performed.
+ * If the only change is removed mints, a minor version bump is performed.
+ * If the only change is added mints or updated overrides, a patch version bump is performed.
  */
 export function bump({ before, after }: BumpOptions) {
   if (!hasDeps()) {
@@ -80,7 +80,7 @@ function diffOverrides(before: string, after: string): boolean {
 
 function diffMintlists(before: string, after: string): { hasAdded: boolean; hasRemoved: boolean } {
   const files = toMintlistFilePaths(
-    execSync(`git diff --name-only --diff-filter=d ${before} ${after}`, {
+    execSync(`git diff --name-only --diff-filter=ad ${before} ${after}`, {
       encoding: "utf-8",
     })
   );
@@ -131,29 +131,16 @@ function exists(hash: string, filePath: string) {
 // Returns true if a mintlist.json file was added or removed, false otherwise
 function hasMintlistChanges(before: string, after: string) {
   const beforeMintlists = toMintlistFilePaths(
-    execSync(`git ls-tree --name-only ${before} src/mintlists`, {
+    execSync(`git ls-tree --name-only ${before} src/**/**`, {
       encoding: "utf-8",
     })
   );
-
-  for (const mintlist of beforeMintlists) {
-    if (!exists(after, mintlist)) {
-      return true;
-    }
-  }
-  const afterMintlists = execSync(`git ls-tree --name-only ${after} src/mintlists`, {
-    encoding: "utf-8",
-  })
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .filter((line) => MintlistFileUtil.validMintlistName(line));
-  for (const mintlist of afterMintlists) {
-    if (!exists(before, mintlist)) {
-      return true;
-    }
-  }
-
-  return false;
+  const afterMintlists = toMintlistFilePaths(
+    execSync(`git ls-tree --name-only ${after} src/**/**`, {
+      encoding: "utf-8",
+    })
+  );
+  return beforeMintlists.sort().toString() !== afterMintlists.sort().toString();
 }
 
 // Checks if npm and git are installed and in the PATH
@@ -175,9 +162,11 @@ function hasUncommittedChanges() {
   return diff.length > 0;
 }
 
+// Converts a string of file paths to an array of mintlist file paths in the src/mintlists directory
 function toMintlistFilePaths(str: string): string[] {
   return str
     .split("\n")
     .filter((line) => line.length > 0)
+    .filter((line) => line.startsWith("src/mintlists"))
     .filter((line) => MintlistFileUtil.validMintlistName(MintlistFileUtil.getFileName(line)));
 }
