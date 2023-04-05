@@ -40,12 +40,16 @@ async function createFetcher(opts: Opts): Promise<TokenFetcher> {
   if (!process.env.SOLANA_NETWORK) {
     throw new Error("SOLANA_NETWORK must be set");
   }
+  let overrides;
+  try {
+    overrides = MintlistFileUtil.readOverridesSync("./src/overrides.json");
+  } catch (e) {
+    throw new Error("overrides.json file not found");
+  }
   const connection = new Connection(process.env.SOLANA_NETWORK);
   const fetcher = new TokenFetcher(connection);
-  if (opts.overrides) {
-    fetcher.addProvider(new FileSystemProvider(MintlistFileUtil.readOverridesSync(opts.overrides)));
-  }
   fetcher
+    .addProvider(new FileSystemProvider(overrides))
     .addProvider(new MetaplexProvider(connection, { concurrency: 10, intervalMs: 1000 }))
     .addProvider(new SolanaFmProvider({ concurrency: 5, intervalMs: 1000 }))
     .addProvider(
@@ -69,7 +73,6 @@ async function fetchTokenlist(fetcher: TokenFetcher, mintlist: Mintlist): Promis
 
 interface Opts {
   outDir: string;
-  overrides?: string;
 }
 
 function isOpts(opts: any): opts is Opts {
