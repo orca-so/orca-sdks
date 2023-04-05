@@ -1,4 +1,3 @@
-import { AddressUtil } from "@orca-so/common-sdk";
 import { Address } from "@project-serum/anchor";
 import { FileSystemProvider, MetadataProvider, ReadonlyTokenMetadata } from "../src/metadata";
 import { TokenFetcher } from "../src/token-fetcher";
@@ -22,7 +21,7 @@ describe("token-fetcher", () => {
     const p2 = new FileSystemProvider({
       [mint]: { name: "P2 Token", symbol: "P2", image: "https://p2.com" },
     });
-    const fetcher = TokenFetcher.from(ctx.connection).addProvider(p1).addProvider(p2);
+    const fetcher = new TokenFetcher(ctx.connection).addProvider(p1).addProvider(p2);
     const metadata = await fetcher.find(mint);
     expect(metadata.name).toEqual("P1 Token");
     expect(metadata.symbol).toEqual("P1");
@@ -43,7 +42,7 @@ describe("token-fetcher", () => {
     const p3 = new FileSystemProvider({
       [mint]: { image: "TOKEN_IMAGE", name: "WRONG_NAME" },
     });
-    const fetcher = TokenFetcher.from(ctx.connection)
+    const fetcher = new TokenFetcher(ctx.connection)
       .addProvider(p0)
       .addProvider(p1)
       .addProvider(p2)
@@ -60,16 +59,56 @@ describe("token-fetcher", () => {
     expect(p0.getCount(mint)).toEqual(1);
   });
 
-  it("partial cache miss overwrites with new fetch", async () => {
+  it("cache entry with partial metadata is cache hit", async () => {
     const token = await createNewMint(ctx, 9);
     const mint = token.publicKey.toBase58();
     const p1 = new FileSystemProvider({
       [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
     });
-    const fetcher = TokenFetcher.from(ctx.connection, {
-      cache: { [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" } },
-    }).addProvider(p1);
+    const fetcher = new TokenFetcher(ctx.connection)
+      .setCache({
+        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
+      })
+      .addProvider(p1);
     const metadata = await fetcher.find(mint);
+    expect(metadata.name).toEqual("ORIGINAL_TOKEN_NAME");
+    expect(metadata.symbol).toBeUndefined();
+    expect(metadata.image).toBeUndefined();
+    expect(metadata.decimals).toEqual(9);
+    expect(metadata.mint).toEqual(mint);
+  });
+
+  it("find with refresh fetches new data", async () => {
+    const token = await createNewMint(ctx, 9);
+    const mint = token.publicKey.toBase58();
+    const p1 = new FileSystemProvider({
+      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
+    });
+    const fetcher = new TokenFetcher(ctx.connection)
+      .setCache({
+        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
+      })
+      .addProvider(p1);
+    const metadata = await fetcher.find(mint, true);
+    expect(metadata.name).toEqual("TOKEN_NAME");
+    expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
+    expect(metadata.image).toEqual("TOKEN_IMAGE");
+    expect(metadata.decimals).toEqual(9);
+    expect(metadata.mint).toEqual(mint);
+  });
+
+  it("findMany with refresh fetches new data", async () => {
+    const token = await createNewMint(ctx, 9);
+    const mint = token.publicKey.toBase58();
+    const p1 = new FileSystemProvider({
+      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
+    });
+    const fetcher = new TokenFetcher(ctx.connection)
+      .setCache({
+        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
+      })
+      .addProvider(p1);
+    const metadata = (await fetcher.findMany([mint], true))[mint];
     expect(metadata.name).toEqual("TOKEN_NAME");
     expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
     expect(metadata.image).toEqual("TOKEN_IMAGE");
@@ -81,9 +120,7 @@ describe("token-fetcher", () => {
     const token = await createNewMint(ctx, 9);
     const mint = token.publicKey.toBase58();
     const timeoutProvider = new TimeoutMetadataProvider();
-    const fetcher = TokenFetcher.from(ctx.connection, { timeoutMs: 10 }).addProvider(
-      timeoutProvider
-    );
+    const fetcher = new TokenFetcher(ctx.connection, 10).addProvider(timeoutProvider);
     const metadata = await fetcher.find(mint);
     expect(metadata.decimals).toEqual(9);
     expect(metadata.mint).toEqual(mint);
@@ -102,9 +139,7 @@ describe("token-fetcher", () => {
       [mint]: { name: "P1 Token", symbol: "P1", image: "https://p1.com" },
     });
     const incrementProvider = new IncrementProvider();
-    const fetcher = TokenFetcher.from(ctx.connection)
-      .addProvider(p1)
-      .addProvider(incrementProvider);
+    const fetcher = new TokenFetcher(ctx.connection).addProvider(p1).addProvider(incrementProvider);
     await fetcher.find(mint);
     expect(incrementProvider.getCount(mint)).toEqual(0);
 

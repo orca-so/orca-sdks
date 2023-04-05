@@ -14,28 +14,23 @@ import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
-interface Opts {
-  timeoutMs?: number;
-  cache?: Record<string, Token>;
-}
-
 type ReadonlyToken = Readonly<Token>;
 type ReadonlyTokenMap = Readonly<Record<string, ReadonlyToken>>;
 
 export class TokenFetcher {
   private readonly connection: Connection;
-  private readonly _cache: Record<string, Token>;
   private readonly providers: MetadataProvider[] = [];
   private readonly timeoutMs: number;
+  private _cache: Record<string, Token> = {};
 
-  private constructor(connection: Connection, opts: Opts = {}) {
+  constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
     this.connection = connection;
-    this._cache = opts.cache ?? {};
-    this.timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
+    this.timeoutMs = timeoutMs;
   }
 
-  public static from(connection: Connection, opts: Opts = {}): TokenFetcher {
-    return new TokenFetcher(connection, opts);
+  public setCache(cache: Record<string, Token>): TokenFetcher {
+    this._cache = cache;
+    return this;
   }
 
   public addProvider(provider: MetadataProvider): TokenFetcher {
@@ -43,10 +38,10 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address): Promise<ReadonlyToken> {
+  public async find(address: Address, refresh: boolean = false): Promise<ReadonlyToken> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
-    if (!this.contains(mintString)) {
+    if (refresh || !this.contains(mintString)) {
       const mintInfo = await this.request(
         getParsedAccount(this.connection, mint, ParsableMintInfo)
       );
@@ -72,9 +67,9 @@ export class TokenFetcher {
     return { ...this._cache[mintString] };
   }
 
-  public async findMany(addresses: Address[]): Promise<ReadonlyTokenMap> {
+  public async findMany(addresses: Address[], refresh: boolean = false): Promise<ReadonlyTokenMap> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const misses = mints.filter((mint) => !this.contains(mint.toBase58()));
+    const misses = refresh ? mints : mints.filter((mint) => !this.contains(mint.toBase58()));
 
     if (misses.length > 0) {
       const mintInfos = (
@@ -118,7 +113,7 @@ export class TokenFetcher {
   }
 
   private contains(mint: string): boolean {
-    return !!this._cache[mint] && !MetadataUtil.isPartial(this._cache[mint]);
+    return !!this._cache[mint];
   }
 
   private request<T>(promise: PromiseLike<T>) {
