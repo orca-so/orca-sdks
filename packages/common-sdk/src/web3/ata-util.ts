@@ -5,12 +5,7 @@ import {
   TOKEN_PROGRAM_ID,
   u64,
 } from "@solana/spl-token";
-import {
-  Connection,
-  PublicKey,
-  TransactionInstruction,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Connection, PublicKey, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import {
   createWSOLAccountInstructions,
   ResolvedTokenAddressInstruction,
@@ -38,7 +33,7 @@ export async function resolveOrCreateATA(
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = new u64(0),
   payer = ownerAddress,
-  modeIdempotent: boolean = false,
+  modeIdempotent: boolean = false
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
@@ -46,7 +41,7 @@ export async function resolveOrCreateATA(
     [{ tokenMint, wrappedSolAmountIn }],
     getAccountRentExempt,
     payer,
-    modeIdempotent,
+    modeIdempotent
   );
   return instructions[0]!;
 }
@@ -75,7 +70,7 @@ export async function resolveOrCreateATAs(
   requests: ResolvedTokenAddressRequest[],
   getAccountRentExempt: () => Promise<number>,
   payer = ownerAddress,
-  modeIdempotent: boolean = false,
+  modeIdempotent: boolean = false
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -112,7 +107,7 @@ export async function resolveOrCreateATAs(
           ataAddress,
           ownerAddress,
           payer,
-          modeIdempotent,
+          modeIdempotent
         );
 
         resolvedInstruction = {
@@ -156,7 +151,7 @@ function createAssociatedTokenAccountInstruction(
   associatedAccount: PublicKey,
   owner: PublicKey,
   payer: PublicKey,
-  modeIdempotent: boolean,
+  modeIdempotent: boolean
 ): TransactionInstruction {
   if (!modeIdempotent) {
     return Token.createAssociatedTokenAccountInstruction(
@@ -165,7 +160,7 @@ function createAssociatedTokenAccountInstruction(
       mint,
       associatedAccount,
       owner,
-      payer,
+      payer
     );
   }
 
