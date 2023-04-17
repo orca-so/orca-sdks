@@ -12,6 +12,7 @@ import {
 } from "../helpers/token-instructions";
 import { TokenUtil } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
+import { getMultipleParsedAccounts, ParsableTokenAccountInfo } from "./network";
 
 /**
  * IMPORTANT: wrappedSolAmountIn should only be used for input/source token that
@@ -84,9 +85,10 @@ export async function resolveOrCreateATAs(
     const nonNativeAddresses = await Promise.all(
       nonNativeMints.map(({ tokenMint }) => deriveATA(ownerAddress, tokenMint))
     );
-    const tokenAccountInfos = await connection.getMultipleAccountsInfo(nonNativeAddresses);
-    const tokenAccounts = tokenAccountInfos.map((tai) =>
-      TokenUtil.deserializeTokenAccount(tai?.data as Buffer)
+    const tokenAccounts = await getMultipleParsedAccounts(
+      connection,
+      nonNativeAddresses,
+      ParsableTokenAccountInfo
     );
     tokenAccounts.forEach((tokenAccount, index) => {
       const ataAddress = nonNativeAddresses[index]!;
