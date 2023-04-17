@@ -1,17 +1,16 @@
 import {
   AddressLookupTableAccount,
-  Commitment, Connection,
+  Commitment,
+  Connection,
   SendOptions,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionMessage,
-  VersionedTransaction
+  VersionedTransaction,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { TransactionProcessor } from "./transactions-processor";
 import { Instruction, TransactionPayload } from "./types";
-
 
 /** 
   Build options when building a transaction using TransactionBuilder
@@ -29,17 +28,6 @@ import { Instruction, TransactionPayload } from "./types";
   when maxSupportedTransactionVersion is set to a number.
  */
 export type BuildOptions = LegacyBuildOption | V0BuildOption;
-
-export const defaultBuildOptions: BuildOptions = {
-  blockhashCommitment: "confirmed",
-  maxSupportedTransactionVersion: 0,
-};
-
-export const defaultSendOptions: SendOptions = {
-  skipPreflight: false,
-  preflightCommitment: "confirmed",
-  maxRetries: 3,
-};
 
 type LegacyBuildOption = {
   maxSupportedTransactionVersion: "legacy";
@@ -61,16 +49,44 @@ type BaseBuildOption = {
 const LEGACY_TX_UNIQUE_KEYS_LIMIT = 35;
 
 /**
+ * A set of options that the builder will use by default, unless overridden by the user in each method.
+ */
+export type TransactionBuilderOptions = {
+  defaultBuildOption: BuildOptions;
+  defaultSendOption: SendOptions;
+  defaultConfirmationCommitment: Commitment;
+};
+
+export const defaultTransactionBuilderOptions: TransactionBuilderOptions = {
+  defaultBuildOption: {
+    maxSupportedTransactionVersion: 0,
+    blockhashCommitment: "confirmed",
+  },
+  defaultSendOption: {
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    maxRetries: 3,
+  },
+  defaultConfirmationCommitment: "confirmed",
+};
+
+/**
  * Transaction builder for composing, building and sending transactions.
  * @category Transactions
  */
 export class TransactionBuilder {
   private instructions: Instruction[];
   private signers: Signer[];
+  private opts: TransactionBuilderOptions;
 
-  constructor(readonly connection: Connection, readonly wallet: Wallet) {
+  constructor(
+    readonly connection: Connection,
+    readonly wallet: Wallet,
+    defaultOpts?: TransactionBuilderOptions
+  ) {
     this.instructions = [];
     this.signers = [];
+    this.opts = defaultOpts ?? defaultTransactionBuilderOptions;
   }
 
   /**
@@ -157,15 +173,13 @@ export class TransactionBuilder {
 
   /**
    * Returns the size of the current transaction in bytes. Measurement method can differ based on the maxSupportedTransactionVersion.
+   * @param userOptions - Options to override the default build options
    * @returns the size of the current transaction in bytes.
    * @throws error if there is an error measuring the transaction size.
    *         This can happen if the transaction is too large, or if the transaction contains too many keys to be serialized.
    */
-  async txnSize(options?: Partial<BuildOptions>): Promise<number> {
-    const finalOptions: BuildOptions = {
-      ...defaultBuildOptions,
-      ...options,
-    };
+  async txnSize(userOptions?: Partial<BuildOptions>): Promise<number> {
+    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
     if (this.isEmpty()) {
       return 0;
     }
@@ -176,11 +190,12 @@ export class TransactionBuilder {
 
   /**
    * Constructs a transaction payload with the gathered instructions
+   * @param userOptions - Options to override the default build options
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
-  async build(options?: Partial<BuildOptions>): Promise<TransactionPayload> {
-    const opts = { ...defaultBuildOptions, ...options };
-    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = opts;
+  async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
+    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
+    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = finalOptions;
 
     let recentBlockhash = latestBlockhash;
     if (!recentBlockhash) {
@@ -190,6 +205,7 @@ export class TransactionBuilder {
     const ix = this.compressIx(true);
 
     const allSigners = ix.signers.concat(this.signers);
+
 
     if (maxSupportedTransactionVersion === "legacy") {
       const transaction = new Transaction({
@@ -206,14 +222,16 @@ export class TransactionBuilder {
       };
     }
 
-
-    const { lookupTableAccounts } = opts;
     const txnMsg = new TransactionMessage({
       recentBlockhash: recentBlockhash.blockhash,
       payerKey: this.wallet.publicKey,
       instructions: ix.instructions,
     });
+
+    const { lookupTableAccounts } = finalOptions;
+
     const msg = txnMsg.compileToV0Message(lookupTableAccounts);
+    txnMsg.compileToLegacyMessage
     const v0txn = new VersionedTransaction(msg);
 
     return {
@@ -225,43 +243,46 @@ export class TransactionBuilder {
 
   /**
    * Constructs a transaction payload with the gathered instructions, sign it with the provider and send it out
+   * @param options - Options to build the transaction. . Overrides the default options provided in the constructor.
+   * @param sendOptions - Options to send the transaction. Overrides the default options provided in the constructor.
+   * @param confirmCommitment - Commitment level to wait for transaction confirmation. Overrides the default options provided in the constructor.
    * @returns the txId of the transaction
    */
   async buildAndExecute(
     options?: Partial<BuildOptions>,
     sendOptions?: Partial<SendOptions>,
-    confirmCommitment: Commitment = "confirmed"
+    confirmCommitment?: Commitment
   ): Promise<string> {
-    const sendOpts = { ...defaultSendOptions, ...sendOptions };
+    const sendOpts = { ...this.opts.defaultSendOption, ...sendOptions };
     const btx = await this.build(options);
     const txn = btx.transaction;
+    const resolvedConfirmCommitment = confirmCommitment ?? this.opts.defaultConfirmationCommitment;
 
+    let txId: string;
     if (isVersionedTransaction(txn)) {
       const signedTxn = await this.wallet.signTransaction(txn);
-      txn.sign(btx.signers);
-
-      const txId = await this.connection.sendTransaction(signedTxn, sendOpts);
-
-      const result = await this.connection.confirmTransaction(
-        {
-          signature: txId,
-          ...btx.recentBlockhash,
-        },
-        confirmCommitment
-      );
-
-      const confirmTxErr = result.value.err;
-      if (confirmTxErr) {
-        throw new Error(confirmTxErr.toString());
-      }
-
-      return txId;
+      signedTxn.sign(btx.signers);
+      txId = await this.connection.sendTransaction(signedTxn, sendOpts);
     } else {
-      // TODO: send options?
-      const tp = new TransactionProcessor(this.connection, this.wallet);
-      const { execute } = await tp.signAndConstructTransaction({ ...btx, transaction: txn });
-      return execute();
+      const signedTxn = await this.wallet.signTransaction(txn);
+      btx.signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => signedTxn.partialSign(keypair));
+      txId = await this.connection.sendRawTransaction(signedTxn.serialize(), sendOpts);
     }
+
+    const result = await this.connection.confirmTransaction(
+      {
+        signature: txId,
+        ...btx.recentBlockhash,
+      },
+      resolvedConfirmCommitment
+    );
+
+    const confirmTxErr = result.value.err;
+    if (confirmTxErr) {
+      throw new Error(confirmTxErr.toString());
+    }
+
+    return txId;
   }
 }
 
