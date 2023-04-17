@@ -10,7 +10,7 @@ export class TransactionProcessor {
     readonly connection: Connection,
     readonly wallet: Wallet,
     readonly commitment: Commitment = "confirmed"
-  ) {}
+  ) { }
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction;
