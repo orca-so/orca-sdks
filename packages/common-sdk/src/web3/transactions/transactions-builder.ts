@@ -231,7 +231,6 @@ export class TransactionBuilder {
     const { lookupTableAccounts } = finalOptions;
 
     const msg = txnMsg.compileToV0Message(lookupTableAccounts);
-    txnMsg.compileToLegacyMessage
     const v0txn = new VersionedTransaction(msg);
 
     return {
