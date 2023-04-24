@@ -46,6 +46,8 @@ type BaseBuildOption = {
   blockhashCommitment: Commitment;
 };
 
+type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
+
 const LEGACY_TX_UNIQUE_KEYS_LIMIT = 35;
 
 /**
@@ -178,12 +180,16 @@ export class TransactionBuilder {
    * @throws error if there is an error measuring the transaction size.
    *         This can happen if the transaction is too large, or if the transaction contains too many keys to be serialized.
    */
-  async txnSize(userOptions?: Partial<BuildOptions>): Promise<number> {
-    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
+  txnSize(userOptions?: Partial<BuildOptions>): number {
+    const finalOptions: SyncBuildOptions = {
+      ...this.opts.defaultBuildOption,
+      ...userOptions,
+      latestBlockhash: GENESIS_BLOCKHASH,
+    };
     if (this.isEmpty()) {
       return 0;
     }
-    const request = await this.build(finalOptions);
+    const request = this.buildSync(finalOptions);
     const tx = request.transaction;
     return isVersionedTransaction(tx) ? measureV0Tx(tx) : measureLegacyTx(tx);
   }
@@ -195,17 +201,22 @@ export class TransactionBuilder {
    */
   async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
     const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
-    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = finalOptions;
-
+    const { latestBlockhash, blockhashCommitment } = finalOptions;
     let recentBlockhash = latestBlockhash;
     if (!recentBlockhash) {
       recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
     }
+    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash });
+  }
+
+  buildSync(finalOptions: SyncBuildOptions): TransactionPayload {
+    const { latestBlockhash, maxSupportedTransactionVersion } = finalOptions;
 
     const ix = this.compressIx(true);
 
     const allSigners = ix.signers.concat(this.signers);
 
+    const recentBlockhash = latestBlockhash;
 
     if (maxSupportedTransactionVersion === "legacy") {
       const transaction = new Transaction({
@@ -229,9 +240,7 @@ export class TransactionBuilder {
     });
 
     const { lookupTableAccounts } = finalOptions;
-
     const msg = txnMsg.compileToV0Message(lookupTableAccounts);
-    txnMsg.compileToLegacyMessage
     const v0txn = new VersionedTransaction(msg);
 
     return {
@@ -265,7 +274,9 @@ export class TransactionBuilder {
       txId = await this.connection.sendTransaction(signedTxn, sendOpts);
     } else {
       const signedTxn = await this.wallet.signTransaction(txn);
-      btx.signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => signedTxn.partialSign(keypair));
+      btx.signers
+        .filter((s): s is Signer => s !== undefined)
+        .forEach((keypair) => signedTxn.partialSign(keypair));
       txId = await this.connection.sendRawTransaction(signedTxn.serialize(), sendOpts);
     }
 
@@ -295,6 +306,12 @@ export const isVersionedTransaction = (
   tx: Transaction | VersionedTransaction
 ): tx is VersionedTransaction => {
   return "version" in tx;
+};
+
+// Used as a placeholder blockhash value when only compiling a tx for calculating tx size
+const GENESIS_BLOCKHASH = {
+  blockhash: "4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZAMdL4VZHirAn",
+  lastValidBlockHeight: 0,
 };
 
 function measureLegacyTx(tx: Transaction): number {
