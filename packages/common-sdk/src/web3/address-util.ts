@@ -1,5 +1,6 @@
-import { Address, translateAddress, utils } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
+
+export declare type Address = PublicKey | string;
 
 /**
  * @category Util
@@ -11,7 +12,7 @@ export type PDA = { publicKey: PublicKey; bump: number };
  */
 export class AddressUtil {
   public static toPubKey(address: Address): PublicKey {
-    return translateAddress(address);
+    return address instanceof PublicKey ? address : new PublicKey(address);
   }
 
   public static toPubKeys(addresses: Address[]): PublicKey[] {
@@ -19,6 +20,9 @@ export class AddressUtil {
   }
 
   public static toString(address: Address): string {
+    if (typeof address === "string") {
+      return address;
+    }
     return AddressUtil.toPubKey(address).toBase58();
   }
 
@@ -27,7 +31,7 @@ export class AddressUtil {
   }
 
   public static findProgramAddress(seeds: (Uint8Array | Buffer)[], programId: PublicKey): PDA {
-    const [publicKey, bump] = utils.publicKey.findProgramAddressSync(seeds, programId);
+    const [publicKey, bump] = PublicKey.findProgramAddressSync(seeds, programId);
     return { publicKey, bump };
   }
 }

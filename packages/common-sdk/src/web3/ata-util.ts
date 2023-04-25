@@ -5,18 +5,14 @@ import {
   TOKEN_PROGRAM_ID,
   u64,
 } from "@solana/spl-token";
-import {
-  Connection,
-  PublicKey,
-  TransactionInstruction,
-  SystemProgram,
-} from "@solana/web3.js";
+import { Connection, PublicKey, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import {
   createWSOLAccountInstructions,
   ResolvedTokenAddressInstruction,
 } from "../helpers/token-instructions";
 import { TokenUtil } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
+import { getMultipleParsedAccounts, ParsableTokenAccountInfo } from "./network";
 
 /**
  * IMPORTANT: wrappedSolAmountIn should only be used for input/source token that
@@ -38,7 +34,7 @@ export async function resolveOrCreateATA(
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = new u64(0),
   payer = ownerAddress,
-  modeIdempotent: boolean = false,
+  modeIdempotent: boolean = false
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
@@ -46,7 +42,7 @@ export async function resolveOrCreateATA(
     [{ tokenMint, wrappedSolAmountIn }],
     getAccountRentExempt,
     payer,
-    modeIdempotent,
+    modeIdempotent
   );
   return instructions[0]!;
 }
@@ -75,7 +71,7 @@ export async function resolveOrCreateATAs(
   requests: ResolvedTokenAddressRequest[],
   getAccountRentExempt: () => Promise<number>,
   payer = ownerAddress,
-  modeIdempotent: boolean = false,
+  modeIdempotent: boolean = false
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -89,9 +85,10 @@ export async function resolveOrCreateATAs(
     const nonNativeAddresses = await Promise.all(
       nonNativeMints.map(({ tokenMint }) => deriveATA(ownerAddress, tokenMint))
     );
-    const tokenAccountInfos = await connection.getMultipleAccountsInfo(nonNativeAddresses);
-    const tokenAccounts = tokenAccountInfos.map((tai) =>
-      TokenUtil.deserializeTokenAccount(tai?.data as Buffer)
+    const tokenAccounts = await getMultipleParsedAccounts(
+      connection,
+      nonNativeAddresses,
+      ParsableTokenAccountInfo
     );
     tokenAccounts.forEach((tokenAccount, index) => {
       const ataAddress = nonNativeAddresses[index]!;
@@ -112,7 +109,7 @@ export async function resolveOrCreateATAs(
           ataAddress,
           ownerAddress,
           payer,
-          modeIdempotent,
+          modeIdempotent
         );
 
         resolvedInstruction = {
@@ -156,7 +153,7 @@ function createAssociatedTokenAccountInstruction(
   associatedAccount: PublicKey,
   owner: PublicKey,
   payer: PublicKey,
-  modeIdempotent: boolean,
+  modeIdempotent: boolean
 ): TransactionInstruction {
   if (!modeIdempotent) {
     return Token.createAssociatedTokenAccountInstruction(
@@ -165,7 +162,7 @@ function createAssociatedTokenAccountInstruction(
       mint,
       associatedAccount,
       owner,
-      payer,
+      payer
     );
   }
 
