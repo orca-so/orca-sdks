@@ -5,10 +5,14 @@ import path from "node:path";
 
 export class MintlistFileUtil {
   public static readMintlistSync(filePath: string): Mintlist {
+    const paths = MintlistFileUtil.toValidFilePaths(filePath);
+    if (paths.length !== 1) {
+      throw new Error(`No valid mintlist found at ${filePath} - must be in src/mintlists`);
+    }
     try {
-      return this.fromString<Mintlist>(readFileSync(resolve(filePath), "utf-8"));
+      return this.fromString<Mintlist>(readFileSync(resolve(paths[0]), "utf-8"));
     } catch (e) {
-      throw new Error(`Failed to parse mintlist at ${filePath}`);
+      throw new Error(`Failed to parse mintlist at ${paths[0]}`);
     }
   }
 
@@ -52,6 +56,14 @@ export class MintlistFileUtil {
       throw new Error("Invalid path");
     }
     return name;
+  }
+
+  public static toValidFilePaths(str: string): string[] {
+    return str
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .filter((line) => line.startsWith("src/mintlists"))
+      .filter((line) => MintlistFileUtil.validMintlistName(MintlistFileUtil.getFileName(line)));
   }
 }
 

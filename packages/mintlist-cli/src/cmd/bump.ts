@@ -79,7 +79,7 @@ function diffOverrides(before: string, after: string): boolean {
 }
 
 function diffMintlists(before: string, after: string): { hasAdded: boolean; hasRemoved: boolean } {
-  const files = toMintlistFilePaths(
+  const files = MintlistFileUtil.toValidFilePaths(
     execSync(`git diff --name-only --diff-filter=ad ${before} ${after}`, {
       encoding: "utf-8",
     })
@@ -130,12 +130,12 @@ function exists(hash: string, filePath: string) {
 // Checks if a mintlist.json file was added or removed from the src/mintlists directory
 // Returns true if a mintlist.json file was added or removed, false otherwise
 function hasMintlistChanges(before: string, after: string) {
-  const beforeMintlists = toMintlistFilePaths(
+  const beforeMintlists = MintlistFileUtil.toValidFilePaths(
     execSync(`git ls-tree --name-only ${before} src/**/**`, {
       encoding: "utf-8",
     })
   );
-  const afterMintlists = toMintlistFilePaths(
+  const afterMintlists = MintlistFileUtil.toValidFilePaths(
     execSync(`git ls-tree --name-only ${after} src/**/**`, {
       encoding: "utf-8",
     })
@@ -160,13 +160,4 @@ function hasDeps() {
 function hasUncommittedChanges() {
   const diff = execSync("git diff --name-only", { encoding: "utf-8" });
   return diff.length > 0;
-}
-
-// Converts a string of file paths to an array of mintlist file paths in the src/mintlists directory
-function toMintlistFilePaths(str: string): string[] {
-  return str
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .filter((line) => line.startsWith("src/mintlists"))
-    .filter((line) => MintlistFileUtil.validMintlistName(MintlistFileUtil.getFileName(line)));
 }
