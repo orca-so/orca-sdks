@@ -11,6 +11,7 @@ import {
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
+import { MEASUREMENT_BLOCKHASH } from "./constants";
 
 /** 
   Build options when building a transaction using TransactionBuilder
@@ -184,7 +185,7 @@ export class TransactionBuilder {
     const finalOptions: SyncBuildOptions = {
       ...this.opts.defaultBuildOption,
       ...userOptions,
-      latestBlockhash: GENESIS_BLOCKHASH,
+      latestBlockhash: MEASUREMENT_BLOCKHASH,
     };
     if (this.isEmpty()) {
       return 0;
@@ -248,7 +249,7 @@ export class TransactionBuilder {
    */
   async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
     const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
-    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = finalOptions;
+    const { latestBlockhash, blockhashCommitment } = finalOptions;
     let recentBlockhash = latestBlockhash;
     if (!recentBlockhash) {
       recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
@@ -312,12 +313,6 @@ export const isVersionedTransaction = (
   tx: Transaction | VersionedTransaction
 ): tx is VersionedTransaction => {
   return "version" in tx;
-};
-
-// Used as a placeholder blockhash value when only compiling a tx for calculating tx size
-const GENESIS_BLOCKHASH = {
-  blockhash: "4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZAMdL4VZHirAn",
-  lastValidBlockHeight: 0,
 };
 
 function measureLegacyTx(tx: Transaction): number {
