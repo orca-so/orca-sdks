@@ -195,22 +195,12 @@ export class TransactionBuilder {
   }
 
   /**
-   * Constructs a transaction payload with the gathered instructions
-   * @param userOptions - Options to override the default build options
+   * Constructs a transaction payload with the gathered instructions synchronously
+   * @param options - Options used to build the transaction
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
-  async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
-    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
-    const { latestBlockhash, blockhashCommitment } = finalOptions;
-    let recentBlockhash = latestBlockhash;
-    if (!recentBlockhash) {
-      recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
-    }
-    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash });
-  }
-
-  buildSync(finalOptions: SyncBuildOptions): TransactionPayload {
-    const { latestBlockhash, maxSupportedTransactionVersion } = finalOptions;
+  buildSync(options: SyncBuildOptions): TransactionPayload {
+    const { latestBlockhash, maxSupportedTransactionVersion } = options;
 
     const ix = this.compressIx(true);
 
@@ -239,7 +229,8 @@ export class TransactionBuilder {
       instructions: ix.instructions,
     });
 
-    const { lookupTableAccounts } = finalOptions;
+    const { lookupTableAccounts } = options;
+
     const msg = txnMsg.compileToV0Message(lookupTableAccounts);
     const v0txn = new VersionedTransaction(msg);
 
@@ -248,6 +239,21 @@ export class TransactionBuilder {
       signers: allSigners,
       recentBlockhash,
     };
+  }
+
+  /**
+   * Constructs a transaction payload with the gathered instructions
+   * @param userOptions - Options to override the default build options
+   * @returns a TransactionPayload object that can be excuted or agregated into other transactions
+   */
+  async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
+    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
+    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = finalOptions;
+    let recentBlockhash = latestBlockhash;
+    if (!recentBlockhash) {
+      recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
+    }
+    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash });
   }
 
   /**
