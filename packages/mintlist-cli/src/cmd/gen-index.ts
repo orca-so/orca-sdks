@@ -7,7 +7,7 @@ export function genIndex(opts: any) {
   if (!isOpts(opts)) {
     throw new Error("Invalid options");
   }
-  const { outDir, inDir } = opts;
+  const { outDir, inDir, outFile } = opts;
   const inPath = resolve(inDir);
   const outPath = resolve(outDir);
   const files = getFilePaths(inPath);
@@ -28,7 +28,7 @@ export function genIndex(opts: any) {
     mkdirSync(outPath);
   }
 
-  writeFileSync(`${outPath}/index.ts`, contents);
+  writeFileSync(`${outPath}/${outFile}`, contents);
 }
 
 function toExportLine(filePath: string): string {
@@ -99,8 +99,11 @@ import { Mintlist, Tokenlist } from "@orca-so/token-sdk";`;
 interface Opts {
   outDir: string;
   inDir: string;
+  outFile: string;
 }
 
 function isOpts(opts: any): opts is Opts {
-  return !!opts && typeof opts === "object" && "outDir" in opts && "inDir" in opts;
+  return (
+    !!opts && typeof opts === "object" && "outDir" in opts && "inDir" in opts && "outFile" in opts
+  );
 }
