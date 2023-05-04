@@ -1,14 +1,10 @@
 import {
-  Transaction,
-  VersionedTransaction,
   TransactionInstruction,
   SystemProgram,
   Keypair,
-  TransactionMessage,
 } from "@solana/web3.js";
 import { defaultTransactionBuilderOptions, isVersionedTransaction, MEASUREMENT_BLOCKHASH, TransactionBuilder } from "../../../src/web3";
 import { createTestContext } from "../../test-context";
-import TestWallet from "../../utils/test-wallet";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
@@ -46,6 +42,14 @@ describe("transactions-builder", () => {
 
       return builder;
     }
+
+    it("empty", async () => {
+      const { wallet, connection } = ctx;
+      const builder = new TransactionBuilder(connection, wallet);
+
+      const size = builder.txnSize();
+      expect(size).toEqual(0);
+    });
 
     it("legacy: size < PACKET_DATA_SIZE", async () => {
       const builder = buildTransactionBuilder(15, "legacy");
@@ -90,6 +94,19 @@ describe("transactions-builder", () => {
       expect(isVersionedTransaction(transaction.transaction)).toBeTruthy();
       
       // logical size: 1246 > PACKET_DATA_SIZE
+      expect(() => builder.txnSize()).toThrow(
+        /Unable to measure transaction size/
+      );
+    });
+
+    it("v0: size >> PACKET_DATA_SIZE", async () => {
+      const builder = buildTransactionBuilder(42, 0);
+   
+      // should be versioned
+      const transaction = await builder.build();
+      expect(isVersionedTransaction(transaction.transaction)).toBeTruthy();
+      
+      // logical size: 2226 >> PACKET_DATA_SIZE
       expect(() => builder.txnSize()).toThrow(
         /Unable to measure transaction size/
       );
