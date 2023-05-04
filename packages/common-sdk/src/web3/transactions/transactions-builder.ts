@@ -11,6 +11,7 @@ import {
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
+import { MEASUREMENT_BLOCKHASH } from "./constants";
 
 /** 
   Build options when building a transaction using TransactionBuilder
@@ -45,6 +46,8 @@ type BaseBuildOption = {
   };
   blockhashCommitment: Commitment;
 };
+
+type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
 
 const LEGACY_TX_UNIQUE_KEYS_LIMIT = 35;
 
@@ -178,34 +181,33 @@ export class TransactionBuilder {
    * @throws error if there is an error measuring the transaction size.
    *         This can happen if the transaction is too large, or if the transaction contains too many keys to be serialized.
    */
-  async txnSize(userOptions?: Partial<BuildOptions>): Promise<number> {
-    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
+  txnSize(userOptions?: Partial<BuildOptions>): number {
+    const finalOptions: SyncBuildOptions = {
+      ...this.opts.defaultBuildOption,
+      ...userOptions,
+      latestBlockhash: MEASUREMENT_BLOCKHASH,
+    };
     if (this.isEmpty()) {
       return 0;
     }
-    const request = await this.build(finalOptions);
+    const request = this.buildSync(finalOptions);
     const tx = request.transaction;
     return isVersionedTransaction(tx) ? measureV0Tx(tx) : measureLegacyTx(tx);
   }
 
   /**
-   * Constructs a transaction payload with the gathered instructions
-   * @param userOptions - Options to override the default build options
+   * Constructs a transaction payload with the gathered instructions synchronously
+   * @param options - Options used to build the transaction
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
-  async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
-    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
-    const { latestBlockhash, maxSupportedTransactionVersion, blockhashCommitment } = finalOptions;
-
-    let recentBlockhash = latestBlockhash;
-    if (!recentBlockhash) {
-      recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
-    }
+  buildSync(options: SyncBuildOptions): TransactionPayload {
+    const { latestBlockhash, maxSupportedTransactionVersion } = options;
 
     const ix = this.compressIx(true);
 
     const allSigners = ix.signers.concat(this.signers);
 
+    const recentBlockhash = latestBlockhash;
 
     if (maxSupportedTransactionVersion === "legacy") {
       const transaction = new Transaction({
@@ -228,7 +230,7 @@ export class TransactionBuilder {
       instructions: ix.instructions,
     });
 
-    const { lookupTableAccounts } = finalOptions;
+    const { lookupTableAccounts } = options;
 
     const msg = txnMsg.compileToV0Message(lookupTableAccounts);
     const v0txn = new VersionedTransaction(msg);
@@ -238,6 +240,21 @@ export class TransactionBuilder {
       signers: allSigners,
       recentBlockhash,
     };
+  }
+
+  /**
+   * Constructs a transaction payload with the gathered instructions
+   * @param userOptions - Options to override the default build options
+   * @returns a TransactionPayload object that can be excuted or agregated into other transactions
+   */
+  async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
+    const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
+    const { latestBlockhash, blockhashCommitment } = finalOptions;
+    let recentBlockhash = latestBlockhash;
+    if (!recentBlockhash) {
+      recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
+    }
+    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash });
   }
 
   /**
@@ -264,7 +281,9 @@ export class TransactionBuilder {
       txId = await this.connection.sendTransaction(signedTxn, sendOpts);
     } else {
       const signedTxn = await this.wallet.signTransaction(txn);
-      btx.signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => signedTxn.partialSign(keypair));
+      btx.signers
+        .filter((s): s is Signer => s !== undefined)
+        .forEach((keypair) => signedTxn.partialSign(keypair));
       txId = await this.connection.sendRawTransaction(signedTxn.serialize(), sendOpts);
     }
 
