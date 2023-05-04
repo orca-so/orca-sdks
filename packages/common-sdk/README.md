@@ -9,5 +9,5 @@ solana-test-validator
 
 In the common-sdk folder, run:
 ```
-npm run test
+yarn run test --verbose
 ```
