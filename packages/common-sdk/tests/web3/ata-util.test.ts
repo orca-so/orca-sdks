@@ -21,7 +21,7 @@ describe("ata-util", () => {
     Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, mint, owner);
 
   beforeAll(async () => {
-    requestAirdrop(ctx);
+    await requestAirdrop(ctx);
   });
 
   it("resolveOrCreateATA, wrapped sol", async () => {
