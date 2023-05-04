@@ -8,6 +8,7 @@ import {
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
+  PACKET_DATA_SIZE
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
@@ -330,20 +331,37 @@ function measureLegacyTx(tx: Transaction): number {
   }
 
   try {
+    // (Legacy)Transaction.serialize ensures that the size of successfully serialized data
+    // is less than or equal to PACKET_DATA_SIZE(1232).
+    // https://github.com/solana-labs/solana-web3.js/blob/77f78a8/packages/library-legacy/src/transaction/legacy.ts#L806
     const serialized = tx.serialize({ requireAllSignatures: false });
-    return toBuffer(serialized).toString("base64").length;
+    return serialized.length;
   } catch (e: unknown) {
     throw new Error("Unable to measure transaction size. Unable to serialize transaction.");
   }
 }
 
 function measureV0Tx(tx: VersionedTransaction): number {
+  let serialized: Uint8Array;
   try {
-    const serialized = tx.serialize();
-    return toBuffer(serialized).toString("base64").length;
+    serialized = tx.serialize();
   } catch (e) {
     throw new Error("Unable to measure transaction size. Unable to serialize transaction.");
   }
+
+  // VersionedTransaction.serialize does NOT ensures that the size of successfully serialized data is
+  // less than or equal to PACKET_DATA_SIZE(1232).
+  // https://github.com/solana-labs/solana-web3.js/blob/77f78a8/packages/library-legacy/src/transaction/versioned.ts#L65
+  //
+  // BufferLayout.encode throws an error for writes that exceed the buffer size,
+  // so obviously large transactions will throws an error.
+  // However, depending on the size of the signature and message body, a size between 1233 - 2048 may be returned
+  // as a successful result, so we need to check it here.
+  if (serialized.length > PACKET_DATA_SIZE) {
+    throw new Error("Unable to measure transaction size. Transaction too large.");
+  }
+
+  return serialized.length;
 }
 
 const toBuffer = (arr: Buffer | Uint8Array | Array<number>): Buffer => {
