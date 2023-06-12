@@ -7,7 +7,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@orca-so/common-sdk": "0.2.1",
+    "@orca-so/common-sdk": "0.2.2",
     "@solana/web3.js": "^1.74.0",
     "axios": "^0.27.2",
     "decimal.js": "^10.3.1"
