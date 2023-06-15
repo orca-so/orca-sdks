@@ -1,15 +1,23 @@
 import {
-  AccountInfo,
   AccountLayout,
   NATIVE_MINT,
-  Token,
   TOKEN_PROGRAM_ID,
-  u64,
+  createCloseAccountInstruction,
+  createInitializeAccountInstruction,
+  createTransferCheckedInstruction,
+  getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import BN from "bn.js";
 import invariant from "tiny-invariant";
 import { ZERO } from "../math";
-import { deriveATA, Instruction, resolveOrCreateATA } from "../web3";
+import { Instruction, resolveOrCreateATA } from "../web3";
+/**
+ * @category Util
+ */
+export type ResolvedTokenAddressInstruction = {
+  address: PublicKey;
+} & Instruction;
 
 /**
  * @category Util
@@ -19,47 +27,53 @@ export class TokenUtil {
     return mint.equals(NATIVE_MINT);
   }
 
-  public static deserializeTokenAccount = (data: Buffer | undefined): AccountInfo | null => {
-    if (!data) {
-      return null;
-    }
+  /**
+   * Create an ix to send a native-mint and unwrap it to the user's wallet.
+   * @param owner
+   * @param amountIn
+   * @param rentExemptLamports
+   * @param payer
+   * @param unwrapDestination
+   * @returns
+   */
+  static createWrappedNativeAccountInstruction(
+    owner: PublicKey,
+    amountIn: BN,
+    rentExemptLamports: number,
+    payer?: PublicKey,
+    unwrapDestination?: PublicKey
+  ): ResolvedTokenAddressInstruction {
+    const payerKey = payer ?? owner;
+    const tempAccount = new Keypair();
+    const unwrapDestinationKey = unwrapDestination ?? payer ?? owner;
 
-    if (data.byteLength !== AccountLayout.span) {
-      throw new Error("Invalid data length for TokenAccount");
-    }
+    const createAccountInstruction = SystemProgram.createAccount({
+      fromPubkey: payerKey,
+      newAccountPubkey: tempAccount.publicKey,
+      lamports: amountIn.toNumber() + rentExemptLamports,
+      space: AccountLayout.span,
+      programId: TOKEN_PROGRAM_ID,
+    });
 
-    const accountInfo = AccountLayout.decode(data);
-    accountInfo.mint = new PublicKey(accountInfo.mint);
-    accountInfo.owner = new PublicKey(accountInfo.owner);
-    accountInfo.amount = u64.fromBuffer(accountInfo.amount);
+    const initAccountInstruction = createInitializeAccountInstruction(
+      tempAccount.publicKey,
+      NATIVE_MINT,
+      owner
+    );
 
-    if (accountInfo.delegateOption === 0) {
-      accountInfo.delegate = null;
-      accountInfo.delegatedAmount = new u64(0);
-    } else {
-      accountInfo.delegate = new PublicKey(accountInfo.delegate);
-      accountInfo.delegatedAmount = u64.fromBuffer(accountInfo.delegatedAmount);
-    }
+    const closeWSOLAccountInstruction = createCloseAccountInstruction(
+      tempAccount.publicKey,
+      unwrapDestinationKey,
+      owner
+    );
 
-    accountInfo.isInitialized = accountInfo.state !== 0;
-    accountInfo.isFrozen = accountInfo.state === 2;
-
-    if (accountInfo.isNativeOption === 1) {
-      accountInfo.rentExemptReserve = u64.fromBuffer(accountInfo.isNative);
-      accountInfo.isNative = true;
-    } else {
-      accountInfo.rentExemptReserve = null;
-      accountInfo.isNative = false;
-    }
-
-    if (accountInfo.closeAuthorityOption === 0) {
-      accountInfo.closeAuthority = null;
-    } else {
-      accountInfo.closeAuthority = new PublicKey(accountInfo.closeAuthority);
-    }
-
-    return accountInfo;
-  };
+    return {
+      address: tempAccount.publicKey,
+      instructions: [createAccountInstruction, initAccountInstruction],
+      cleanupInstructions: [closeWSOLAccountInstruction],
+      signers: [tempAccount],
+    };
+  }
 
   /**
    * Create an ix to send a spl-token / native-mint to another wallet.
@@ -82,7 +96,7 @@ export class TokenUtil {
     destinationWallet: PublicKey,
     tokenMint: PublicKey,
     tokenDecimals: number,
-    amount: u64,
+    amount: BN,
     getAccountRentExempt: () => Promise<number>,
     payer?: PublicKey
   ): Promise<Instruction> {
@@ -102,7 +116,7 @@ export class TokenUtil {
       };
     }
 
-    const sourceTokenAccount = await deriveATA(sourceWallet, tokenMint);
+    const sourceTokenAccount = getAssociatedTokenAddressSync(tokenMint, sourceWallet);
     const { address: destinationTokenAccount, ...destinationAtaIx } = await resolveOrCreateATA(
       connection,
       destinationWallet,
@@ -112,14 +126,12 @@ export class TokenUtil {
       payer
     );
 
-    const transferIx = Token.createTransferCheckedInstruction(
-      TOKEN_PROGRAM_ID,
+    const transferIx = createTransferCheckedInstruction(
       sourceTokenAccount,
       tokenMint,
       destinationTokenAccount,
       sourceWallet,
-      [],
-      new u64(amount.toString()),
+      BigInt(amount.toString()),
       tokenDecimals
     );
 

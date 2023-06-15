@@ -17,14 +17,15 @@ describe("parsing", () => {
   it("ParsableTokenAccountInfo", async () => {
     const { ata, mint } = await createAssociatedTokenAccount(ctx);
     const account = await ctx.connection.getAccountInfo(ata);
-    const parsed = ParsableTokenAccountInfo.parse(account!.data);
+    const parsed = ParsableTokenAccountInfo.parse(ata, account);
 
     expect(parsed).toBeDefined();
     if (!parsed) {
       throw new Error("parsed is undefined");
     }
-    expect(parsed.mint.equals(mint)).toBeTruthy();
-    expect(parsed.isInitialized).toEqual(true);
-    expect(parsed.amount.eqn(0)).toBeTruthy();
+    const parsedData = parsed.data;
+    expect(parsedData.mint.equals(mint)).toBeTruthy();
+    expect(parsedData.isInitialized).toEqual(true);
+    expect(parsedData.amount === 0n).toBeTruthy();
   });
 });

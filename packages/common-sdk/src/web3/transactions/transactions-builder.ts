@@ -8,7 +8,7 @@ import {
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
-  PACKET_DATA_SIZE
+  PACKET_DATA_SIZE,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
