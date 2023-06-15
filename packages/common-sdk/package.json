@@ -9,7 +9,7 @@
   "types": "dist/index.d.ts",
   "dependencies": {
     "@solana/spl-token": "^0.3.8",
-    "@solana/web3.js": "^1.74.0",
+    "@solana/web3.js": "^1.75.0",
     "decimal.js": "^10.3.1",
     "tiny-invariant": "^1.2.0"
   },
