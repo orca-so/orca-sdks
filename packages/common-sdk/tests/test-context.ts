@@ -38,7 +38,12 @@ export async function createAssociatedTokenAccount(
   ctx: TestContext,
   mint?: PublicKey
 ): Promise<{ ata: PublicKey; mint: PublicKey }> {
-  let tokenMint = mint || await createNewMint(ctx);
-  const ataKey = await createAssociatedTokenAccountIdempotent(ctx.connection, ctx.wallet.payer, tokenMint, ctx.wallet.publicKey)
+  let tokenMint = mint || (await createNewMint(ctx));
+  const ataKey = await createAssociatedTokenAccountIdempotent(
+    ctx.connection,
+    ctx.wallet.payer,
+    tokenMint,
+    ctx.wallet.publicKey
+  );
   return { ata: ataKey, mint: tokenMint };
 }

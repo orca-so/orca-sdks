@@ -14,7 +14,7 @@ describe("account-requests", () => {
   const ctx = createTestContext();
   // Silence the errors when we evaluate invalid token accounts.
   beforeEach(() => {
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   beforeAll(async () => {
@@ -55,19 +55,16 @@ describe("account-requests", () => {
   });
 
   it("getMultipleParsedAccounts, separate chunks", async () => {
-    const mints = await Promise.all(Array.from({ length: 10 }, async () => await createNewMint(ctx)));
-    const mintInfos = await getMultipleParsedAccounts(
-      ctx.connection,
-      mints,
-      ParsableMintInfo,
-      2
+    const mints = await Promise.all(
+      Array.from({ length: 10 }, async () => await createNewMint(ctx))
     );
+    const mintInfos = await getMultipleParsedAccounts(ctx.connection, mints, ParsableMintInfo, 2);
 
     // Verify all mints are fetched and are in order
     expect(mintInfos.length === mints.length);
     mints.forEach((mint, i) => {
       expect(mintInfos[i]!.address.equals(mint));
-    })
+    });
   });
 });
 

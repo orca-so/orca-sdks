@@ -24,7 +24,12 @@ export async function getMultipleParsedAccounts<T>(
     return [];
   }
 
-  const values = await getMultipleAccounts(connection, AddressUtil.toPubKeys(addresses), 10, chunkSize);
+  const values = await getMultipleAccounts(
+    connection,
+    AddressUtil.toPubKeys(addresses),
+    10,
+    chunkSize
+  );
   const results = values.map((val) => {
     if (val[1] === null) {
       return null;
