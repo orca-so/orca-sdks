@@ -8,6 +8,8 @@ import {
   setAuthority
 } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import { BN } from "bn.js";
+import { ZERO } from "../../src/math";
 import { resolveOrCreateATA, resolveOrCreateATAs } from "../../src/web3/ata-util";
 import { TransactionBuilder } from "../../src/web3/transactions";
 import { createNewMint, createTestContext, requestAirdrop } from "../test-context";
@@ -32,7 +34,7 @@ describe("ata-util", () => {
       wallet.publicKey,
       NATIVE_MINT,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      BigInt(LAMPORTS_PER_SOL),
+      new BN(LAMPORTS_PER_SOL),
       wallet.publicKey,
       false
     );
@@ -54,7 +56,7 @@ describe("ata-util", () => {
       wallet.publicKey,
       mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      0n,
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -87,7 +89,7 @@ describe("ata-util", () => {
       wallet.publicKey,
       mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      0n,
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -104,7 +106,7 @@ describe("ata-util", () => {
       wallet.publicKey,
       mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      0n,
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -132,7 +134,7 @@ describe("ata-util", () => {
       wallet.publicKey,
       mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      0n,
+      ZERO,
       wallet.publicKey,
       true
     );
@@ -141,7 +143,7 @@ describe("ata-util", () => {
     expect(resolved.instructions[0].data[0]).toEqual(1); // 1 byte data
 
     // created before execution
-    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey)
+    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey);
     const accountData = await connection.getAccountInfo(expected);
     expect(accountData).not.toBeNull();
 
@@ -161,7 +163,7 @@ describe("ata-util", () => {
     const resolved = await resolveOrCreateATAs(
       connection,
       wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: 0n })),
+      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
       wallet.publicKey,
       false
@@ -200,7 +202,7 @@ describe("ata-util", () => {
     const resolved = await resolveOrCreateATAs(
       connection,
       wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: 0n })),
+      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
       wallet.publicKey,
       true

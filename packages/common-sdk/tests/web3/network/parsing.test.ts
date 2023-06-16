@@ -23,7 +23,7 @@ describe("parsing", () => {
     if (!parsed) {
       throw new Error("parsed is undefined");
     }
-    const parsedData = parsed.data;
+    const parsedData = parsed;
     expect(parsedData.mint.equals(mint)).toBeTruthy();
     expect(parsedData.isInitialized).toEqual(true);
     expect(parsedData.amount === 0n).toBeTruthy();

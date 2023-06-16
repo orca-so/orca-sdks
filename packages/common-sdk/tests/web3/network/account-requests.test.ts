@@ -26,7 +26,7 @@ describe("account-requests", () => {
     const expected = await getMint(ctx.connection, mint);
 
     const mintInfo = await getParsedAccount(ctx.connection, mint, ParsableMintInfo);
-    expectMintEquals(mintInfo!.data, expected);
+    expectMintEquals(mintInfo!, expected);
   });
 
   it("getMultipleParsedAccounts, some null", async () => {
@@ -38,7 +38,7 @@ describe("account-requests", () => {
       ParsableMintInfo
     );
 
-    expectMintEquals(mintInfos[0]!.data, await getMint(ctx.connection, mint));
+    expectMintEquals(mintInfos[0]!, await getMint(ctx.connection, mint));
     expect(mintInfos[1]).toBeNull();
   });
 
@@ -50,8 +50,24 @@ describe("account-requests", () => {
       [mint, ata],
       ParsableMintInfo
     );
-    expectMintEquals(mintInfos[0]!.data, await getMint(ctx.connection, mint));
+    expectMintEquals(mintInfos[0]!, await getMint(ctx.connection, mint));
     expect(mintInfos[1]).toBeNull();
+  });
+
+  it("getMultipleParsedAccounts, separate chunks", async () => {
+    const mints = await Promise.all(Array.from({ length: 10 }, async () => await createNewMint(ctx)));
+    const mintInfos = await getMultipleParsedAccounts(
+      ctx.connection,
+      mints,
+      ParsableMintInfo,
+      2
+    );
+
+    // Verify all mints are fetched and are in order
+    expect(mintInfos.length === mints.length);
+    mints.forEach((mint, i) => {
+      expect(mintInfos[i]!.address.equals(mint));
+    })
   });
 });
 

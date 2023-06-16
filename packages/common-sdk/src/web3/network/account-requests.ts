@@ -17,13 +17,14 @@ export async function getParsedAccount<T>(
 export async function getMultipleParsedAccounts<T>(
   connection: Connection,
   addresses: Address[],
-  parser: ParsableEntity<T>
+  parser: ParsableEntity<T>,
+  chunkSize = 100
 ): Promise<(T | null)[]> {
   if (addresses.length === 0) {
     return [];
   }
 
-  const values = await getMultipleAccounts(connection, AddressUtil.toPubKeys(addresses));
+  const values = await getMultipleAccounts(connection, AddressUtil.toPubKeys(addresses), 10, chunkSize);
   const results = values.map((val) => {
     if (val[1] === null) {
       return null;
@@ -41,9 +42,10 @@ export type FetchedAccountMap = Map<string, AccountInfo<Buffer> | null>;
 export async function getMultipleAccountsInMap(
   connection: Connection,
   addresses: Address[],
-  timeoutAfterSeconds = 10
+  timeoutAfterSeconds = 10,
+  chunkSize = 100
 ): Promise<Readonly<FetchedAccountMap>> {
-  const results = await getMultipleAccounts(connection, addresses, timeoutAfterSeconds);
+  const results = await getMultipleAccounts(connection, addresses, timeoutAfterSeconds, chunkSize);
   return results.reduce((map, [key, value]) => {
     map.set(key.toBase58(), value);
     return map;
@@ -53,24 +55,26 @@ export async function getMultipleAccountsInMap(
 export async function getMultipleAccounts(
   connection: Connection,
   addresses: Address[],
-  timeoutAfterSeconds = 10
+  timeoutAfterSeconds = 10,
+  chunkSize = 100
 ): Promise<Readonly<FetchedAccountEntry[]>> {
   if (addresses.length === 0) {
     return [];
   }
 
   const promises: Promise<void>[] = [];
-  const chunk = 100; // getMultipleAccounts has limitation of 100 accounts per request
-  const result: Array<FetchedAccountEntry> = [];
+  const chunks = Math.ceil(addresses.length / chunkSize);
+  const result: Array<FetchedAccountEntry[]> = new Array<FetchedAccountEntry[]>(chunks);
 
-  for (let i = 0; i < addresses.length; i += chunk) {
-    const addressChunk = AddressUtil.toPubKeys(addresses.slice(i, i + chunk));
+  for (let i = 0; i < result.length; i++) {
+    const slice = addresses.slice(i * chunkSize, (i + 1) * chunkSize);
+    const addressChunk = AddressUtil.toPubKeys(slice);
     const promise = new Promise<void>(async (resolve) => {
       const res = await connection.getMultipleAccountsInfo(addressChunk);
-      const map = res.map((result, index) => {
+      const fetchedAccountChunk = res.map((result, index) => {
         return [addressChunk[index], result] as FetchedAccountEntry;
       });
-      result.push(...map);
+      result[i] = fetchedAccountChunk;
       resolve();
     });
     promises.push(promise);
@@ -81,8 +85,9 @@ export async function getMultipleAccounts(
     timeoutAfter(timeoutAfterSeconds, "connection.getMultipleAccountsInfo timeout"),
   ]);
 
-  invariant(result.length === addresses.length, "getMultipleAccounts not enough results");
-  return result;
+  const flattenedResult = result.flat();
+  invariant(flattenedResult.length === addresses.length, "getMultipleAccounts not enough results");
+  return flattenedResult;
 }
 
 function timeoutAfter(seconds: number, message: string) {
