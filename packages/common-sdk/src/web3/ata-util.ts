@@ -1,18 +1,15 @@
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   NATIVE_MINT,
-  Token,
-  TOKEN_PROGRAM_ID,
-  u64,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Connection, PublicKey, TransactionInstruction, SystemProgram } from "@solana/web3.js";
-import {
-  createWSOLAccountInstructions,
-  ResolvedTokenAddressInstruction,
-} from "../helpers/token-instructions";
-import { TokenUtil } from "./token-util";
+import { Connection, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { ZERO } from "../math";
+import { ParsableTokenAccountInfo, getMultipleParsedAccounts } from "./network";
+import { ResolvedTokenAddressInstruction, TokenUtil } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
-import { getMultipleParsedAccounts, ParsableTokenAccountInfo } from "./network";
 
 /**
  * IMPORTANT: wrappedSolAmountIn should only be used for input/source token that
@@ -32,7 +29,7 @@ export async function resolveOrCreateATA(
   ownerAddress: PublicKey,
   tokenMint: PublicKey,
   getAccountRentExempt: () => Promise<number>,
-  wrappedSolAmountIn = new u64(0),
+  wrappedSolAmountIn = ZERO,
   payer = ownerAddress,
   modeIdempotent: boolean = false
 ): Promise<ResolvedTokenAddressInstruction> {
@@ -49,7 +46,7 @@ export async function resolveOrCreateATA(
 
 type ResolvedTokenAddressRequest = {
   tokenMint: PublicKey;
-  wrappedSolAmountIn?: u64;
+  wrappedSolAmountIn?: BN;
 };
 
 /**
@@ -82,14 +79,16 @@ export async function resolveOrCreateATAs(
 
   let instructionMap: { [tokenMint: string]: ResolvedTokenAddressInstruction } = {};
   if (nonNativeMints.length > 0) {
-    const nonNativeAddresses = await Promise.all(
-      nonNativeMints.map(({ tokenMint }) => deriveATA(ownerAddress, tokenMint))
+    const nonNativeAddresses = nonNativeMints.map(({ tokenMint }) =>
+      getAssociatedTokenAddressSync(tokenMint, ownerAddress)
     );
+
     const tokenAccounts = await getMultipleParsedAccounts(
       connection,
       nonNativeAddresses,
       ParsableTokenAccountInfo
     );
+
     tokenAccounts.forEach((tokenAccount, index) => {
       const ataAddress = nonNativeAddresses[index]!;
       let resolvedInstruction;
@@ -102,15 +101,19 @@ export async function resolveOrCreateATAs(
 
         resolvedInstruction = { address: ataAddress, ...EMPTY_INSTRUCTION };
       } else {
-        const createAtaInstruction = createAssociatedTokenAccountInstruction(
-          ASSOCIATED_TOKEN_PROGRAM_ID,
-          TOKEN_PROGRAM_ID,
-          nonNativeMints[index]!.tokenMint,
-          ataAddress,
-          ownerAddress,
-          payer,
-          modeIdempotent
-        );
+        const createAtaInstruction = modeIdempotent
+          ? createAssociatedTokenAccountIdempotentInstruction(
+              payer,
+              ataAddress,
+              ownerAddress,
+              nonNativeMints[index]!.tokenMint
+            )
+          : createAssociatedTokenAccountInstruction(
+              payer,
+              ataAddress,
+              ownerAddress,
+              nonNativeMints[index]!.tokenMint
+            );
 
         resolvedInstruction = {
           address: ataAddress,
@@ -125,8 +128,8 @@ export async function resolveOrCreateATAs(
 
   if (nativeMints.length > 0) {
     const accountRentExempt = await getAccountRentExempt();
-    const wrappedSolAmountIn = nativeMints[0]?.wrappedSolAmountIn || new u64(0);
-    instructionMap[NATIVE_MINT.toBase58()] = createWSOLAccountInstructions(
+    const wrappedSolAmountIn = nativeMints[0]?.wrappedSolAmountIn || ZERO;
+    instructionMap[NATIVE_MINT.toBase58()] = TokenUtil.createWrappedNativeAccountInstruction(
       ownerAddress,
       wrappedSolAmountIn,
       accountRentExempt
@@ -135,53 +138,4 @@ export async function resolveOrCreateATAs(
 
   // Preserve order of resolution
   return requests.map(({ tokenMint }) => instructionMap[tokenMint.toBase58()]);
-}
-
-export async function deriveATA(ownerAddress: PublicKey, tokenMint: PublicKey): Promise<PublicKey> {
-  return await Token.getAssociatedTokenAddress(
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
-    tokenMint,
-    ownerAddress
-  );
-}
-
-function createAssociatedTokenAccountInstruction(
-  associatedTokenProgramId: PublicKey,
-  tokenProgramId: PublicKey,
-  mint: PublicKey,
-  associatedAccount: PublicKey,
-  owner: PublicKey,
-  payer: PublicKey,
-  modeIdempotent: boolean
-): TransactionInstruction {
-  if (!modeIdempotent) {
-    return Token.createAssociatedTokenAccountInstruction(
-      associatedTokenProgramId,
-      tokenProgramId,
-      mint,
-      associatedAccount,
-      owner,
-      payer
-    );
-  }
-
-  // create CreateIdempotent instruction
-  // spl-token v0.1.8 doesn't have a method for CreateIdempotent.
-  // https://github.com/solana-labs/solana-program-library/blob/master/associated-token-account/program/src/instruction.rs#L26
-  const keys = [
-    { pubkey: payer, isSigner: true, isWritable: true },
-    { pubkey: associatedAccount, isSigner: false, isWritable: true },
-    { pubkey: owner, isSigner: false, isWritable: false },
-    { pubkey: mint, isSigner: false, isWritable: false },
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: tokenProgramId, isSigner: false, isWritable: false },
-  ];
-  const instructionData = Buffer.from([1]);
-
-  return new TransactionInstruction({
-    keys,
-    programId: associatedTokenProgramId,
-    data: instructionData,
-  });
 }

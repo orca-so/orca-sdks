@@ -1,6 +1,5 @@
-import { PublicKey } from "@solana/web3.js";
-import { AccountInfo, MintInfo, MintLayout, u64 } from "@solana/spl-token";
-import { TokenUtil } from "../token-util";
+import { Account, Mint, unpackAccount, unpackMint } from "@solana/spl-token";
+import { AccountInfo, PublicKey } from "@solana/web3.js";
 
 /**
  * Static abstract class definition to parse entities.
@@ -13,25 +12,29 @@ export interface ParsableEntity<T> {
    * @param accountData Buffer data for the entity
    * @returns Parsed entity
    */
-  parse: (accountData: Buffer | undefined | null) => T | null;
+  parse: (address: PublicKey, accountData: AccountInfo<Buffer> | undefined | null) => T | null;
 }
 
 /**
  * @category Parsables
  */
-@staticImplements<ParsableEntity<AccountInfo>>()
+@staticImplements<ParsableEntity<Account>>()
 export class ParsableTokenAccountInfo {
   private constructor() {}
 
-  public static parse(data: Buffer | undefined | null): AccountInfo | null {
+  public static parse(
+    address: PublicKey,
+    data: AccountInfo<Buffer> | undefined | null
+  ): Account | null {
     if (!data) {
       return null;
     }
 
     try {
-      return TokenUtil.deserializeTokenAccount(data);
+      return unpackAccount(address, data);
     } catch (e) {
-      console.error(`error while parsing TokenAccount: ${e}`);
+      console.error(`error while parsing TokenAccount ${address.toBase58()}: ${e}`);
+
       return null;
     }
   }
@@ -40,33 +43,22 @@ export class ParsableTokenAccountInfo {
 /**
  * @category Parsables
  */
-@staticImplements<ParsableEntity<MintInfo>>()
+@staticImplements<ParsableEntity<Mint>>()
 export class ParsableMintInfo {
   private constructor() {}
 
-  public static parse(data: Buffer | undefined | null): MintInfo | null {
+  public static parse(
+    address: PublicKey,
+    data: AccountInfo<Buffer> | undefined | null
+  ): Mint | null {
     if (!data) {
       return null;
     }
 
     try {
-      if (data.byteLength !== MintLayout.span) {
-        throw new Error("Invalid data length for MintInfo");
-      }
-      const buffer = MintLayout.decode(data);
-      const mintInfo: MintInfo = {
-        mintAuthority:
-          buffer.mintAuthorityOption === 0 ? null : new PublicKey(buffer.mintAuthority),
-        supply: u64.fromBuffer(buffer.supply),
-        decimals: buffer.decimals,
-        isInitialized: buffer.isInitialized !== 0,
-        freezeAuthority:
-          buffer.freezeAuthorityOption === 0 ? null : new PublicKey(buffer.freezeAuthority),
-      };
-
-      return mintInfo;
+      return unpackMint(address, data);
     } catch (e) {
-      console.error(`error while parsing MintInfo: ${e}`);
+      console.error(`error while parsing Mint ${address.toBase58()}: ${e}`);
       return null;
     }
   }
