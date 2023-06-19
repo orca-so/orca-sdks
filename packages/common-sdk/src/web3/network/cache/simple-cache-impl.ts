@@ -1,0 +1,131 @@
+import { Connection } from "@solana/web3.js";
+import { AccountCache, AccountFetchOpts } from ".";
+import { Address, AddressUtil } from "../../address-util";
+import { getMultipleAccountsInMap } from "../account-requests";
+import { ParsableEntity } from "../parsing";
+
+type CachedContent<T> = {
+  parser: ParsableEntity<T>;
+  fetchedAt: number;
+  value: T | null;
+};
+
+export type RetentionPolicy<T> = ReadonlyMap<ParsableEntity<T>, number>;
+
+export class SimpleAccountCache<T> implements AccountCache<T> {
+  cache: Map<string, CachedContent<T>> = new Map();
+  constructor(
+    readonly connection: Connection,
+    readonly retentionPolicy: RetentionPolicy<T>
+  ) {
+    this.cache = new Map<string, CachedContent<T>>();
+  }
+
+  async getAccount<U extends T>(
+    address: Address,
+    parser: ParsableEntity<U>,
+    opts?: AccountFetchOpts | undefined,
+    now: number = Date.now()
+  ): Promise<U | null> {
+    const addressKey = AddressUtil.toPubKey(address);
+    const addressStr = AddressUtil.toString(address);
+
+    const cached = this.cache.get(addressStr);
+    const ttl = opts?.ttl ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+    const elapsed = !!cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
+    const expired = elapsed > ttl;
+
+    if (!!cached && !expired) {
+      return cached.value as U | null;
+    }
+
+    try {
+      const accountInfo = await this.connection.getAccountInfo(addressKey);
+      const value = parser.parse(addressKey, accountInfo);
+      this.cache.set(addressStr, { parser, value, fetchedAt: now });
+      return value;
+    } catch (e) {
+      this.cache.set(addressStr, { parser, value: null, fetchedAt: now });
+      return null;
+    }
+  }
+
+  async getAccounts<U extends T>(
+    addresses: Address[],
+    parser: ParsableEntity<U>,
+    opts?: AccountFetchOpts | undefined,
+    now: number = Date.now()
+  ): Promise<ReadonlyMap<string, U | null>> {
+    const addressStrs = AddressUtil.toStrings(addresses);
+    await this.populateCache(addressStrs, parser, opts, now);
+
+    // Build a map of the results, insert by the order of the addresses parameter
+    const result = new Map<string, U | null>();
+    addressStrs.forEach((addressStr) => {
+      const cached = this.cache.get(addressStr);
+      const value = cached?.value as U | null;
+      result.set(addressStr, value);
+    });
+
+    // invariant(result.size === addresses.length, "not enough results fetched");
+    return result;
+  }
+
+  async getAccountsAsArray<U extends T>(
+    addresses: Address[],
+    parser: ParsableEntity<U>,
+    opts?: AccountFetchOpts | undefined,
+    now: number = Date.now()
+  ): Promise<ReadonlyArray<U | null>> {
+    const addressStrs = AddressUtil.toStrings(addresses);
+    await this.populateCache(addressStrs, parser, opts, now);
+
+    // Rebuild an array containing the results, insert by the order of the addresses parameter
+    const result = new Array<U | null>();
+    addressStrs.forEach((addressStr) => {
+      const cached = this.cache.get(addressStr);
+      const value = cached?.value as U | null;
+      result.push(value);
+    });
+
+    return result;
+  };
+
+  async refreshAll(now: number = Date.now()) {
+    const addresses = Array.from(this.cache.keys());
+    const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, addresses);
+
+    for (const [key, cachedContent] of this.cache.entries()) {
+      const parser = cachedContent.parser;
+      const fetchedEntry = fetchedAccountsMap.get(key);
+      const value = parser.parse(AddressUtil.toPubKey(key), fetchedEntry);
+      this.cache.set(key, { parser, value, fetchedAt: now });
+    }
+  }
+  private async populateCache<U extends T>(addresses: Address[], parser: ParsableEntity<U>,
+    opts?: AccountFetchOpts | undefined,
+    now: number = Date.now()) {
+    const addressStrs = AddressUtil.toStrings(addresses);
+    const ttl = opts?.ttl ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+
+    // Filter out all unexpired accounts to get the accounts to fetch
+    const undefinedAccounts = addressStrs.filter((addressStr) => {
+      const cached = this.cache.get(addressStr);
+      const elapsed = cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
+      const expired = elapsed > ttl;
+      return !cached || expired;
+    });
+
+    // Fetch all undefined accounts and place in cache
+    if (undefinedAccounts.length > 0) {
+      const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, undefinedAccounts);
+      undefinedAccounts.forEach((key) => {
+        const fetchedEntry = fetchedAccountsMap.get(key);
+        const value = parser.parse(AddressUtil.toPubKey(key), fetchedEntry);
+        this.cache.set(key, { parser, value, fetchedAt: now });
+      });
+    }
+  }
+
+}
+

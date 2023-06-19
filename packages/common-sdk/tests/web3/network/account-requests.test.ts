@@ -1,4 +1,4 @@
-import { getMint, Mint } from "@solana/spl-token";
+import { getMint } from "@solana/spl-token";
 import { Keypair } from "@solana/web3.js";
 import { getMultipleParsedAccounts, getParsedAccount, ParsableMintInfo } from "../../../src/web3";
 import {
@@ -7,6 +7,7 @@ import {
   createTestContext,
   requestAirdrop,
 } from "../../test-context";
+import { expectMintEquals } from "../../utils/expectations";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
@@ -14,7 +15,7 @@ describe("account-requests", () => {
   const ctx = createTestContext();
   // Silence the errors when we evaluate invalid token accounts.
   beforeEach(() => {
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => { });
   });
 
   beforeAll(async () => {
@@ -68,10 +69,3 @@ describe("account-requests", () => {
   });
 });
 
-function expectMintEquals(actual: Mint, expected: Mint) {
-  expect(actual.decimals).toEqual(expected.decimals);
-  expect(actual.isInitialized).toEqual(expected.isInitialized);
-  expect(actual.mintAuthority!.equals(expected.mintAuthority!)).toBeTruthy();
-  expect(actual.freezeAuthority!.equals(expected.freezeAuthority!)).toBeTruthy();
-  expect(actual.supply === expected.supply).toBeTruthy();
-}
