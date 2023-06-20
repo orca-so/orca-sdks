@@ -15,7 +15,7 @@ describe("account-requests", () => {
   const ctx = createTestContext();
   // Silence the errors when we evaluate invalid token accounts.
   beforeEach(() => {
-    jest.spyOn(console, "error").mockImplementation(() => { });
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   beforeAll(async () => {
@@ -68,4 +68,3 @@ describe("account-requests", () => {
     });
   });
 });
-

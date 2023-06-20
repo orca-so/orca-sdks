@@ -1,6 +1,12 @@
 import { Mint, getMint } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-import { BasicSupportedTypes, ParsableEntity, ParsableMintInfo, ParsableTokenAccountInfo, SimpleAccountCache } from "../../../src/web3";
+import {
+  BasicSupportedTypes,
+  ParsableEntity,
+  ParsableMintInfo,
+  ParsableTokenAccountInfo,
+  SimpleAccountCache,
+} from "../../../src/web3";
 import { TestContext, createNewMint, createTestContext, requestAirdrop } from "../../test-context";
 import { expectMintEquals } from "../../utils/expectations";
 
@@ -8,7 +14,10 @@ jest.setTimeout(100 * 1000 /* ms */);
 
 describe("simple-account-cache", () => {
   let ctx: TestContext = createTestContext();
-  const retentionPolicy = new Map<ParsableEntity<BasicSupportedTypes>, number>([[ParsableMintInfo, 1000], [ParsableTokenAccountInfo, 1000]]);
+  const retentionPolicy = new Map<ParsableEntity<BasicSupportedTypes>, number>([
+    [ParsableMintInfo, 1000],
+    [ParsableTokenAccountInfo, 1000],
+  ]);
   const testMints: PublicKey[] = [];
 
   beforeAll(async () => {
@@ -20,7 +29,7 @@ describe("simple-account-cache", () => {
 
   beforeEach(() => {
     ctx = createTestContext();
-    jest.spyOn(console, "error").mockImplementation(() => { });
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -272,7 +281,12 @@ describe("simple-account-cache", () => {
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
       await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts([testMints[2], testMints[3], PublicKey.default], ParsableMintInfo, undefined, now + 5);
+      await cache.getAccounts(
+        [testMints[2], testMints[3], PublicKey.default],
+        ParsableMintInfo,
+        undefined,
+        now + 5
+      );
       const resultMap = await cache.getAccounts(
         [...mintKeys, PublicKey.default],
         ParsableMintInfo,
@@ -308,7 +322,12 @@ describe("simple-account-cache", () => {
       const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
-      const resultArray = await cache.getAccountsAsArray(mintKeys, ParsableMintInfo, undefined, now);
+      const resultArray = await cache.getAccountsAsArray(
+        mintKeys,
+        ParsableMintInfo,
+        undefined,
+        now
+      );
 
       expect(spy).toBeCalledTimes(1);
 
@@ -326,7 +345,12 @@ describe("simple-account-cache", () => {
       const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
-      const resultArray = await cache.getAccountsAsArray(mintKeys, ParsableMintInfo, undefined, now);
+      const resultArray = await cache.getAccountsAsArray(
+        mintKeys,
+        ParsableMintInfo,
+        undefined,
+        now
+      );
 
       expect(spy).toBeCalledTimes(1);
 
@@ -429,7 +453,12 @@ describe("simple-account-cache", () => {
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
       await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts([testMints[2], testMints[3], PublicKey.default], ParsableMintInfo, undefined, now + 5);
+      await cache.getAccounts(
+        [testMints[2], testMints[3], PublicKey.default],
+        ParsableMintInfo,
+        undefined,
+        now + 5
+      );
       const result = await cache.getAccountsAsArray(
         [...mintKeys, PublicKey.default],
         ParsableMintInfo,
@@ -447,7 +476,7 @@ describe("simple-account-cache", () => {
         }
       });
     });
-  })
+  });
 
   describe("refreshAll", () => {
     it("refresh all updates all keys", async () => {
@@ -455,12 +484,7 @@ describe("simple-account-cache", () => {
       const now = 32523523523;
 
       // Populate cache
-      await cache.getAccounts(
-        testMints,
-        ParsableMintInfo,
-        undefined,
-        now
-      );
+      await cache.getAccounts(testMints, ParsableMintInfo, undefined, now);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const renewNow = now + 500000;
@@ -469,6 +493,6 @@ describe("simple-account-cache", () => {
       cache.cache.forEach((value, _) => {
         expect(value.fetchedAt).toEqual(renewNow);
       });
-    })
+    });
   });
 });
