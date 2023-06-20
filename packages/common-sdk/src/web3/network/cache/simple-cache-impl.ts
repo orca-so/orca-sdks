@@ -12,6 +12,9 @@ type CachedContent<T> = {
 
 export type RetentionPolicy<T> = ReadonlyMap<ParsableEntity<T>, number>;
 
+// SimpleAccountCache is a simple implementation of AccountCache that stores the fetched
+// accounts in memory. If TTL is not provided, it will use TTL defined in the the retention policy
+// for the parser. If that is also not provided, the request will always prefer the cache value.
 export class SimpleAccountCache<T> implements AccountCache<T> {
   cache: Map<string, CachedContent<T>> = new Map();
   constructor(readonly connection: Connection, readonly retentionPolicy: RetentionPolicy<T>) {

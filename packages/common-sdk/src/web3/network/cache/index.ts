@@ -10,12 +10,12 @@ export type BasicSupportedTypes = Account | Mint;
  * Options when fetching the accounts
  */
 export type AccountFetchOpts = {
-  // Accepted Time to live in milliseconds for a cache entry for this account request
-  ttl: number;
+  // Accepted Time to live in milliseconds for a cache entry for this account request.
+  ttl?: number;
 };
 
 /**
- * Interface for fetching and caching on-chain accounts 
+ * Interface for fetching and caching on-chain accounts
  */
 export interface AccountCache<T> {
   /**
