@@ -38,12 +38,12 @@ export interface AccountCache<T> {
   ) => Promise<ReadonlyMap<string, T | null>>;
 
   /**
- * Fetch multiple accounts from the cache or from the network and return as an array
- * @param address A list of account addresses to fetch from cache or network
- * @param parser The parser to used for theses accounts
- * @param opts Options when fetching the accounts
- * @returns an array of accounts. The ordering of the array is the same as the ordering of the input addresses.
- */
+   * Fetch multiple accounts from the cache or from the network and return as an array
+   * @param address A list of account addresses to fetch from cache or network
+   * @param parser The parser to used for theses accounts
+   * @param opts Options when fetching the accounts
+   * @returns an array of accounts. The ordering of the array is the same as the ordering of the input addresses.
+   */
   getAccountsAsArray: (
     address: Address[],
     parser: ParsableEntity<T>,

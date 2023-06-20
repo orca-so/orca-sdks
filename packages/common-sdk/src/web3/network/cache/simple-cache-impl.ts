@@ -14,10 +14,7 @@ export type RetentionPolicy<T> = ReadonlyMap<ParsableEntity<T>, number>;
 
 export class SimpleAccountCache<T> implements AccountCache<T> {
   cache: Map<string, CachedContent<T>> = new Map();
-  constructor(
-    readonly connection: Connection,
-    readonly retentionPolicy: RetentionPolicy<T>
-  ) {
+  constructor(readonly connection: Connection, readonly retentionPolicy: RetentionPolicy<T>) {
     this.cache = new Map<string, CachedContent<T>>();
   }
 
@@ -89,7 +86,7 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
     });
 
     return result;
-  };
+  }
 
   async refreshAll(now: number = Date.now()) {
     const addresses = Array.from(this.cache.keys());
@@ -102,9 +99,12 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
       this.cache.set(key, { parser, value, fetchedAt: now });
     }
   }
-  private async populateCache<U extends T>(addresses: Address[], parser: ParsableEntity<U>,
+  private async populateCache<U extends T>(
+    addresses: Address[],
+    parser: ParsableEntity<U>,
     opts?: AccountFetchOpts | undefined,
-    now: number = Date.now()) {
+    now: number = Date.now()
+  ) {
     const addressStrs = AddressUtil.toStrings(addresses);
     const ttl = opts?.ttl ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
 
@@ -126,6 +126,4 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
       });
     }
   }
-
 }
-
