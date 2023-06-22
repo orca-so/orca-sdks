@@ -23,7 +23,7 @@ export type SimpleAccountFetchOptions = {
 // SimpleAccountCache is a simple implementation of AccountCache that stores the fetched
 // accounts in memory. If TTL is not provided, it will use TTL defined in the the retention policy
 // for the parser. If that is also not provided, the request will always prefer the cache value.
-export class SimpleAccountCache<T, FetchOptions extends SimpleAccountFetchOptions>
+export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOptions>
   implements AccountCache<T, FetchOptions>
 {
   cache: Map<string, CachedContent<T>> = new Map();

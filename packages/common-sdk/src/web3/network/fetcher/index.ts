@@ -2,7 +2,7 @@ import { Account, Mint } from "@solana/spl-token";
 import { ParsableEntity } from "..";
 import { Address } from "../../address-util";
 
-export * from "./simple-cache-impl";
+export * from "./simple-fetcher-impl";
 
 export type BasicSupportedTypes = Account | Mint;
 

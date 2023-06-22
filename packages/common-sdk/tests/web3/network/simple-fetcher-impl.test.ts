@@ -5,14 +5,14 @@ import {
   ParsableEntity,
   ParsableMintInfo,
   ParsableTokenAccountInfo,
-  SimpleAccountCache,
+  SimpleAccountFetcher,
 } from "../../../src/web3";
 import { TestContext, createNewMint, createTestContext, requestAirdrop } from "../../test-context";
 import { expectMintEquals } from "../../utils/expectations";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
-describe("simple-account-cache", () => {
+describe("simple-account-fetcher", () => {
   let ctx: TestContext = createTestContext();
   const retentionPolicy = new Map<ParsableEntity<BasicSupportedTypes>, number>([
     [ParsableMintInfo, 1000],
@@ -42,10 +42,10 @@ describe("simple-account-cache", () => {
 
       const expected = await getMint(ctx.connection, mintKey);
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo);
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -58,11 +58,11 @@ describe("simple-account-cache", () => {
       const now = Date.now();
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, undefined, now);
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, undefined, now + retention);
+      await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now + retention);
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -75,11 +75,11 @@ describe("simple-account-cache", () => {
       const now = 32523523523;
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, undefined, now);
-      const cached = await cache.getAccount(
+      await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now);
+      const cached = await fetcher.getAccount(
         mintKey,
         ParsableMintInfo,
         undefined,
@@ -96,12 +96,12 @@ describe("simple-account-cache", () => {
       const expected = await getMint(ctx.connection, mintKey);
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl);
+      await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl);
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -113,12 +113,12 @@ describe("simple-account-cache", () => {
       const expected = await getMint(ctx.connection, mintKey);
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl + 1);
+      await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl + 1);
 
       expect(spy).toBeCalledTimes(2);
       expect(cached).toBeDefined();
@@ -129,9 +129,9 @@ describe("simple-account-cache", () => {
       const mintKey = PublicKey.default;
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, undefined, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now);
 
       expect(cached).toBeNull();
     });
@@ -140,9 +140,9 @@ describe("simple-account-cache", () => {
       const mintKey = testMints[0];
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
-      const cached = await cache.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now);
 
       expect(cached).toBeNull();
     });
@@ -151,11 +151,11 @@ describe("simple-account-cache", () => {
       const mintKey = testMints[0];
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now);
-      const cached = await cache.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now + 5);
+      await fetcher.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now + 5);
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeNull();
@@ -175,10 +175,10 @@ describe("simple-account-cache", () => {
       const mintKeys = testMints;
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
-      const resultMap = await cache.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
+      const resultMap = await fetcher.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
 
       expect(spy).toBeCalledTimes(1);
 
@@ -191,12 +191,12 @@ describe("simple-account-cache", () => {
     it("all are cached, fetching all values will not call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
-      const resultMap = await cache.getAccounts(
+      await fetcher.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
+      const resultMap = await fetcher.getAccounts(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -212,12 +212,12 @@ describe("simple-account-cache", () => {
     it("all are cached but expired, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
-      const resultMap = await cache.getAccounts(
+      await fetcher.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
+      const resultMap = await fetcher.getAccounts(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -233,12 +233,12 @@ describe("simple-account-cache", () => {
     it("some are cached, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      const resultMap = await cache.getAccounts(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      const resultMap = await fetcher.getAccounts(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -254,13 +254,13 @@ describe("simple-account-cache", () => {
     it("some are cached, some expired, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts([testMints[2], testMints[3]], ParsableMintInfo, undefined, now + 5);
-      const resultMap = await cache.getAccounts(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      await fetcher.getAccounts([testMints[2], testMints[3]], ParsableMintInfo, undefined, now + 5);
+      const resultMap = await fetcher.getAccounts(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -276,18 +276,18 @@ describe("simple-account-cache", () => {
     it("some are cached, some expired, some invalid", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      await fetcher.getAccounts(
         [testMints[2], testMints[3], PublicKey.default],
         ParsableMintInfo,
         undefined,
         now + 5
       );
-      const resultMap = await cache.getAccounts(
+      const resultMap = await fetcher.getAccounts(
         [...mintKeys, PublicKey.default],
         ParsableMintInfo,
         undefined,
@@ -319,10 +319,10 @@ describe("simple-account-cache", () => {
       const mintKeys = testMints;
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
-      const resultArray = await cache.getAccountsAsArray(
+      const resultArray = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -342,10 +342,10 @@ describe("simple-account-cache", () => {
       const expected = [...expectedMintInfos, ...expectedMintInfos];
       const now = 32523523523;
 
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
-      const resultArray = await cache.getAccountsAsArray(
+      const resultArray = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -363,12 +363,12 @@ describe("simple-account-cache", () => {
     it("all are cached, fetching all values will not call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
-      const result = await cache.getAccountsAsArray(
+      await fetcher.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
+      const result = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -384,12 +384,12 @@ describe("simple-account-cache", () => {
     it("all are cached but expired, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
-      const result = await cache.getAccountsAsArray(
+      await fetcher.getAccounts(mintKeys, ParsableMintInfo, undefined, now);
+      const result = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -405,12 +405,12 @@ describe("simple-account-cache", () => {
     it("some are cached, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      const result = await cache.getAccountsAsArray(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      const result = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -426,13 +426,13 @@ describe("simple-account-cache", () => {
     it("some are cached, some expired, fetching all values will call for update", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts([testMints[2], testMints[3]], ParsableMintInfo, undefined, now + 5);
-      const result = await cache.getAccountsAsArray(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      await fetcher.getAccounts([testMints[2], testMints[3]], ParsableMintInfo, undefined, now + 5);
+      const result = await fetcher.getAccountsAsArray(
         mintKeys,
         ParsableMintInfo,
         undefined,
@@ -448,18 +448,18 @@ describe("simple-account-cache", () => {
     it("some are cached, some expired, some invalid", async () => {
       const mintKeys = testMints;
       const now = 32523523523;
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const retention = retentionPolicy.get(ParsableMintInfo)!;
 
-      await cache.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
-      await cache.getAccounts(
+      await fetcher.getAccounts([testMints[0], testMints[1]], ParsableMintInfo, undefined, now);
+      await fetcher.getAccounts(
         [testMints[2], testMints[3], PublicKey.default],
         ParsableMintInfo,
         undefined,
         now + 5
       );
-      const result = await cache.getAccountsAsArray(
+      const result = await fetcher.getAccountsAsArray(
         [...mintKeys, PublicKey.default],
         ParsableMintInfo,
         undefined,
@@ -480,17 +480,17 @@ describe("simple-account-cache", () => {
 
   describe("refreshAll", () => {
     it("refresh all updates all keys", async () => {
-      const cache = new SimpleAccountCache(ctx.connection, retentionPolicy);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
       const now = 32523523523;
 
       // Populate cache
-      await cache.getAccounts(testMints, ParsableMintInfo, undefined, now);
+      await fetcher.getAccounts(testMints, ParsableMintInfo, undefined, now);
 
       const spy = jest.spyOn(ctx.connection, "getMultipleAccountsInfo");
       const renewNow = now + 500000;
-      await cache.refreshAll(renewNow);
+      await fetcher.refreshAll(renewNow);
       expect(spy).toBeCalledTimes(1);
-      cache.cache.forEach((value, _) => {
+      fetcher.cache.forEach((value, _) => {
         expect(value.fetchedAt).toEqual(renewNow);
       });
     });
