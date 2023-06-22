@@ -29,7 +29,7 @@ describe("simple-account-cache", () => {
 
   beforeEach(() => {
     ctx = createTestContext();
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -100,8 +100,8 @@ describe("simple-account-cache", () => {
 
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, { ttl }, now);
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { ttl }, now + ttl);
+      await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
+      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl);
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -117,8 +117,8 @@ describe("simple-account-cache", () => {
 
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
-      await cache.getAccount(mintKey, ParsableMintInfo, { ttl }, now);
-      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { ttl }, now + ttl + 1);
+      await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
+      const cached = await cache.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl + 1);
 
       expect(spy).toBeCalledTimes(2);
       expect(cached).toBeDefined();

@@ -7,17 +7,9 @@ export * from "./simple-cache-impl";
 export type BasicSupportedTypes = Account | Mint;
 
 /**
- * Options when fetching the accounts
- */
-export type AccountFetchOpts = {
-  // Accepted Time to live in milliseconds for a cache entry for this account request.
-  ttl?: number;
-};
-
-/**
  * Interface for fetching and caching on-chain accounts
  */
-export interface AccountCache<T> {
+export interface AccountCache<T, AccountFetchOptions> {
   /**
    * Fetch an account from the cache or from the network
    * @param address The account address to fetch from cache or network
@@ -28,7 +20,7 @@ export interface AccountCache<T> {
   getAccount: (
     address: Address,
     parser: ParsableEntity<T>,
-    opts?: AccountFetchOpts
+    opts?: AccountFetchOptions
   ) => Promise<T | null>;
 
   /**
@@ -41,7 +33,7 @@ export interface AccountCache<T> {
   getAccounts: (
     address: Address[],
     parser: ParsableEntity<T>,
-    opts?: AccountFetchOpts
+    opts?: AccountFetchOptions
   ) => Promise<ReadonlyMap<string, T | null>>;
 
   /**
@@ -54,11 +46,6 @@ export interface AccountCache<T> {
   getAccountsAsArray: (
     address: Address[],
     parser: ParsableEntity<T>,
-    opts?: AccountFetchOpts
+    opts?: AccountFetchOptions
   ) => Promise<ReadonlyArray<T | null>>;
-
-  /**
-   * Refresh all accounts in the cache
-   */
-  refreshAll: () => Promise<void>;
 }

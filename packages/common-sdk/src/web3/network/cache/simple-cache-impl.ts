@@ -1,5 +1,5 @@
 import { Connection } from "@solana/web3.js";
-import { AccountCache, AccountFetchOpts } from ".";
+import { AccountCache } from ".";
 import { Address, AddressUtil } from "../../address-util";
 import { getMultipleAccountsInMap } from "../account-requests";
 import { ParsableEntity } from "../parsing";
@@ -12,10 +12,20 @@ type CachedContent<T> = {
 
 export type RetentionPolicy<T> = ReadonlyMap<ParsableEntity<T>, number>;
 
+/**
+ * Options when fetching the accounts
+ */
+export type SimpleAccountFetchOptions = {
+  // Accepted maxAge in milliseconds for a cache entry hit for this account request.
+  maxAge?: number;
+};
+
 // SimpleAccountCache is a simple implementation of AccountCache that stores the fetched
 // accounts in memory. If TTL is not provided, it will use TTL defined in the the retention policy
 // for the parser. If that is also not provided, the request will always prefer the cache value.
-export class SimpleAccountCache<T> implements AccountCache<T> {
+export class SimpleAccountCache<T, FetchOptions extends SimpleAccountFetchOptions>
+  implements AccountCache<T, FetchOptions>
+{
   cache: Map<string, CachedContent<T>> = new Map();
   constructor(readonly connection: Connection, readonly retentionPolicy: RetentionPolicy<T>) {
     this.cache = new Map<string, CachedContent<T>>();
@@ -24,16 +34,16 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
   async getAccount<U extends T>(
     address: Address,
     parser: ParsableEntity<U>,
-    opts?: AccountFetchOpts | undefined,
+    opts?: FetchOptions | undefined,
     now: number = Date.now()
   ): Promise<U | null> {
     const addressKey = AddressUtil.toPubKey(address);
     const addressStr = AddressUtil.toString(address);
 
     const cached = this.cache.get(addressStr);
-    const ttl = opts?.ttl ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+    const maxAge = opts?.maxAge ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
     const elapsed = !!cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
-    const expired = elapsed > ttl;
+    const expired = elapsed > maxAge;
 
     if (!!cached && !expired) {
       return cached.value as U | null;
@@ -53,7 +63,7 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
   async getAccounts<U extends T>(
     addresses: Address[],
     parser: ParsableEntity<U>,
-    opts?: AccountFetchOpts | undefined,
+    opts?: SimpleAccountFetchOptions | undefined,
     now: number = Date.now()
   ): Promise<ReadonlyMap<string, U | null>> {
     const addressStrs = AddressUtil.toStrings(addresses);
@@ -74,7 +84,7 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
   async getAccountsAsArray<U extends T>(
     addresses: Address[],
     parser: ParsableEntity<U>,
-    opts?: AccountFetchOpts | undefined,
+    opts?: FetchOptions | undefined,
     now: number = Date.now()
   ): Promise<ReadonlyArray<U | null>> {
     const addressStrs = AddressUtil.toStrings(addresses);
@@ -105,17 +115,17 @@ export class SimpleAccountCache<T> implements AccountCache<T> {
   private async populateCache<U extends T>(
     addresses: Address[],
     parser: ParsableEntity<U>,
-    opts?: AccountFetchOpts | undefined,
+    opts?: SimpleAccountFetchOptions | undefined,
     now: number = Date.now()
   ) {
     const addressStrs = AddressUtil.toStrings(addresses);
-    const ttl = opts?.ttl ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+    const maxAge = opts?.maxAge ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
 
     // Filter out all unexpired accounts to get the accounts to fetch
     const undefinedAccounts = addressStrs.filter((addressStr) => {
       const cached = this.cache.get(addressStr);
       const elapsed = cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
-      const expired = elapsed > ttl;
+      const expired = elapsed > maxAge;
       return !cached || expired;
     });
 
