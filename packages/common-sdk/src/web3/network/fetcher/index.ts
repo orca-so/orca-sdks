@@ -9,7 +9,7 @@ export type BasicSupportedTypes = Account | Mint;
 /**
  * Interface for fetching and caching on-chain accounts
  */
-export interface AccountCache<T, AccountFetchOptions> {
+export interface AccountFetcher<T, AccountFetchOptions> {
   /**
    * Fetch an account from the cache or from the network
    * @param address The account address to fetch from cache or network
