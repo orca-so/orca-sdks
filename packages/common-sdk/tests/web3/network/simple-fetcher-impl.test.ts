@@ -125,6 +125,42 @@ describe("simple-account-fetcher", () => {
       expectMintEquals(cached!, expected);
     });
 
+    it("fetch new value when call ttl === 0", async () => {
+      const mintKey = testMints[0];
+      const expected = await getMint(ctx.connection, mintKey);
+      const now = 32523523523;
+
+      const fetcher = new SimpleAccountFetcher(ctx.connection, new Map);
+
+      const spy = jest.spyOn(ctx.connection, "getAccountInfo");
+      await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: 0 }, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: 0 }, now + 1);
+
+      expect(spy).toBeCalledTimes(2);
+      expect(cached).toBeDefined();
+      expectMintEquals(cached!, expected);
+    });
+
+    it("fetch new value when call retention === 0", async () => {
+      const mintKey = testMints[0];
+      const expected = await getMint(ctx.connection, mintKey);
+      const now = 32523523523;
+      const retentionPolicy = new Map<ParsableEntity<BasicSupportedTypes>, number>([
+        [ParsableMintInfo, 0],
+      ]);
+
+
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
+
+      const spy = jest.spyOn(ctx.connection, "getAccountInfo");
+      await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now);
+      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now + 1);
+
+      expect(spy).toBeCalledTimes(2);
+      expect(cached).toBeDefined();
+      expectMintEquals(cached!, expected);
+    });
+
     it("fetching invalid account returns null", async () => {
       const mintKey = PublicKey.default;
       const now = 32523523523;

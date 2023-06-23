@@ -64,7 +64,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     if (opts?.maxAge !== undefined) {
       return opts.maxAge;
     }
-    return parserMaxAge ?? Number.POSITIVE_INFINITY;
+    return parserMaxAge === undefined ? Number.POSITIVE_INFINITY : parserMaxAge;
   }
 
   async getAccounts<U extends T>(
