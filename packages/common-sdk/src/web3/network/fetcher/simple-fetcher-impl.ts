@@ -20,7 +20,7 @@ export type SimpleAccountFetchOptions = {
   maxAge?: number;
 };
 
-// SimpleAccountCache is a simple implementation of AccountCache that stores the fetched
+// SimpleAccountFetcher is a simple implementation of AccountCache that stores the fetched
 // accounts in memory. If TTL is not provided, it will use TTL defined in the the retention policy
 // for the parser. If that is also not provided, the request will always prefer the cache value.
 export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOptions>
@@ -41,7 +41,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     const addressStr = AddressUtil.toString(address);
 
     const cached = this.cache.get(addressStr);
-    const maxAge = opts?.maxAge ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+    const maxAge = this.getMaxAge(this.retentionPolicy.get(parser), opts);
     const elapsed = !!cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
     const expired = elapsed > maxAge;
 
@@ -58,6 +58,13 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
       this.cache.set(addressStr, { parser, value: null, fetchedAt: now });
       return null;
     }
+  }
+
+  private getMaxAge(parserMaxAge?: number, opts?: SimpleAccountFetchOptions): number {
+    if (opts?.maxAge !== undefined) {
+      return opts.maxAge;
+    }
+    return parserMaxAge ?? Number.POSITIVE_INFINITY;
   }
 
   async getAccounts<U extends T>(
@@ -77,7 +84,6 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
       result.set(addressStr, value);
     });
 
-    // invariant(result.size === addresses.length, "not enough results fetched");
     return result;
   }
 
@@ -119,7 +125,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     now: number = Date.now()
   ) {
     const addressStrs = AddressUtil.toStrings(addresses);
-    const maxAge = opts?.maxAge ?? this.retentionPolicy.get(parser) ?? Number.POSITIVE_INFINITY;
+    const maxAge = this.getMaxAge(this.retentionPolicy.get(parser), opts);
 
     // Filter out all unexpired accounts to get the accounts to fetch
     const undefinedAccounts = addressStrs.filter((addressStr) => {
