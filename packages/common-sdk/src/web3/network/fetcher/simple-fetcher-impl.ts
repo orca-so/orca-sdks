@@ -124,7 +124,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     // Filter out all unexpired accounts to get the accounts to fetch
     const undefinedAccounts = addressStrs.filter((addressStr) => {
       const cached = this.cache.get(addressStr);
-      const elapsed = cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
+      const elapsed = !!cached ? now - (cached?.fetchedAt ?? 0) : Number.NEGATIVE_INFINITY;
       const expired = elapsed > maxAge;
       return !cached || expired;
     });
