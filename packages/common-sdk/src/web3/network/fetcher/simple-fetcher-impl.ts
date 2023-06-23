@@ -130,6 +130,9 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     });
 
     // Fetch all undefined accounts and place in cache
+    // TODO: We currently do not support contextSlot consistency across the batched getMultipleAccounts call
+    // If the addresses list contain accounts in the 1st gMA call as subsequent calls and the gMA returns on different contextSlots,
+    // the returned results can be inconsistent and unexpected by the user.
     if (undefinedAccounts.length > 0) {
       const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, undefinedAccounts);
       undefinedAccounts.forEach((key) => {
