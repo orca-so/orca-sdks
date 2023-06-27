@@ -17,11 +17,11 @@ export interface AccountFetcher<T, AccountFetchOptions> {
    * @param opts Options when fetching the accounts
    * @returns
    */
-  getAccount: (
+  getAccount: <U extends T>(
     address: Address,
-    parser: ParsableEntity<T>,
+    parser: ParsableEntity<U>,
     opts?: AccountFetchOptions
-  ) => Promise<T | null>;
+  ) => Promise<U | null>;
 
   /**
    * Fetch multiple accounts from the cache or from the network
@@ -30,11 +30,11 @@ export interface AccountFetcher<T, AccountFetchOptions> {
    * @param opts Options when fetching the accounts
    * @returns a Map of addresses to accounts. The ordering of the Map iteration is the same as the ordering of the input addresses.
    */
-  getAccounts: (
+  getAccounts: <U extends T>(
     address: Address[],
-    parser: ParsableEntity<T>,
+    parser: ParsableEntity<U>,
     opts?: AccountFetchOptions
-  ) => Promise<ReadonlyMap<string, T | null>>;
+  ) => Promise<ReadonlyMap<string, U | null>>;
 
   /**
    * Fetch multiple accounts from the cache or from the network and return as an array
@@ -43,9 +43,9 @@ export interface AccountFetcher<T, AccountFetchOptions> {
    * @param opts Options when fetching the accounts
    * @returns an array of accounts. The ordering of the array is the same as the ordering of the input addresses.
    */
-  getAccountsAsArray: (
+  getAccountsAsArray: <U extends T>(
     address: Address[],
-    parser: ParsableEntity<T>,
+    parser: ParsableEntity<U>,
     opts?: AccountFetchOptions
-  ) => Promise<ReadonlyArray<T | null>>;
+  ) => Promise<ReadonlyArray<U | null>>;
 }
