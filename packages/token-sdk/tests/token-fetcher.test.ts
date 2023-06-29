@@ -1,5 +1,10 @@
 import { Address } from "@orca-so/common-sdk";
-import { FileSystemProvider, MetadataProvider, ReadonlyTokenMetadata } from "../src/metadata";
+import {
+  FileSystemProvider,
+  MetadataProvider,
+  ReadonlyMetadata,
+  ReadonlyMetadataMap,
+} from "../src/metadata";
 import { TokenFetcher } from "../src/token-fetcher";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
 
@@ -14,12 +19,12 @@ describe("token-fetcher", () => {
 
   it("provider priority", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
-    const p1 = new FileSystemProvider({
-      [mint]: { name: "P1 Token", symbol: "P1", image: "https://p1.com" },
-    });
-    const p2 = new FileSystemProvider({
-      [mint]: { name: "P2 Token", symbol: "P2", image: "https://p2.com" },
-    });
+    const p1 = new FileSystemProvider(
+      new Map([[mint, { name: "P1 Token", symbol: "P1", image: "https://p1.com" }]])
+    );
+    const p2 = new FileSystemProvider(
+      new Map([[mint, { name: "P2 Token", symbol: "P2", image: "https://p2.com" }]])
+    );
     const fetcher = new TokenFetcher(ctx.connection).addProvider(p1).addProvider(p2);
     const metadata = await fetcher.find(mint);
     expect(metadata.name).toEqual("P1 Token");
@@ -31,15 +36,13 @@ describe("token-fetcher", () => {
   it("merge results", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
     const p0 = new IncrementProvider();
-    const p1 = new FileSystemProvider({
-      [mint]: { symbol: "TOKEN_SYMBOL" },
-    });
-    const p2 = new FileSystemProvider({
-      [mint]: { name: "TOKEN_NAME", symbol: "WRONG_SYMBOL" },
-    });
-    const p3 = new FileSystemProvider({
-      [mint]: { image: "TOKEN_IMAGE", name: "WRONG_NAME" },
-    });
+    const p1 = new FileSystemProvider(new Map([[mint, { symbol: "TOKEN_SYMBOL" }]]));
+    const p2 = new FileSystemProvider(
+      new Map([[mint, { name: "TOKEN_NAME", symbol: "WRONG_SYMBOL" }]])
+    );
+    const p3 = new FileSystemProvider(
+      new Map([[mint, { image: "TOKEN_IMAGE", name: "WRONG_NAME" }]])
+    );
     const fetcher = new TokenFetcher(ctx.connection)
       .addProvider(p0)
       .addProvider(p1)
@@ -52,20 +55,18 @@ describe("token-fetcher", () => {
     expect(metadata.decimals).toEqual(9);
     expect(p0.getCount(mint)).toEqual(1);
 
-    const metadata2 = (await fetcher.findMany([mint]))[mint];
+    const metadata2 = (await fetcher.findMany([mint])).get(mint);
     expect(metadata2).toEqual(metadata);
     expect(p0.getCount(mint)).toEqual(1);
   });
 
   it("cache entry with partial metadata is cache hit", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
-    const p1 = new FileSystemProvider({
-      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
-    });
+    const p1 = new FileSystemProvider(
+      new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
+    );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache({
-        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
-      })
+      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
     const metadata = await fetcher.find(mint);
     expect(metadata.name).toEqual("ORIGINAL_TOKEN_NAME");
@@ -77,13 +78,11 @@ describe("token-fetcher", () => {
 
   it("find with refresh fetches new data", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
-    const p1 = new FileSystemProvider({
-      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
-    });
+    const p1 = new FileSystemProvider(
+      new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
+    );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache({
-        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
-      })
+      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
     const metadata = await fetcher.find(mint, true);
     expect(metadata.name).toEqual("TOKEN_NAME");
@@ -95,15 +94,13 @@ describe("token-fetcher", () => {
 
   it("findMany with refresh fetches new data", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
-    const p1 = new FileSystemProvider({
-      [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
-    });
+    const p1 = new FileSystemProvider(
+      new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
+    );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache({
-        [mint]: { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" },
-      })
+      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
-    const metadata = (await fetcher.findMany([mint], true))[mint];
+    const metadata = (await fetcher.findMany([mint], true)).get(mint)!;
     expect(metadata.name).toEqual("TOKEN_NAME");
     expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
     expect(metadata.image).toEqual("TOKEN_IMAGE");
@@ -122,15 +119,15 @@ describe("token-fetcher", () => {
     expect(metadata.symbol).toBeFalsy();
     expect(metadata.image).toBeFalsy();
 
-    const metadata2 = (await fetcher.findMany([mint]))[mint];
+    const metadata2 = (await fetcher.findMany([mint])).get(mint);
     expect(metadata2).toEqual(metadata);
   });
 
   it("provider does not get invoked if all metadata found before", async () => {
     const mint = (await createNewMint(ctx, 9)).toString();
-    const p1 = new FileSystemProvider({
-      [mint]: { name: "P1 Token", symbol: "P1", image: "https://p1.com" },
-    });
+    const p1 = new FileSystemProvider(
+      new Map([[mint, { name: "P1 Token", symbol: "P1", image: "https://p1.com" }]])
+    );
     const incrementProvider = new IncrementProvider();
     const fetcher = new TokenFetcher(ctx.connection).addProvider(p1).addProvider(incrementProvider);
     await fetcher.find(mint);
@@ -142,11 +139,11 @@ describe("token-fetcher", () => {
 });
 
 class TimeoutMetadataProvider implements MetadataProvider {
-  async find(_: Address): Promise<ReadonlyTokenMetadata> {
+  async find(_: Address): Promise<ReadonlyMetadata> {
     await sleep(5000);
     throw new Error("Unexpected timeout");
   }
-  async findMany(_: Address[]): Promise<Readonly<Record<string, ReadonlyTokenMetadata>>> {
+  async findMany(_: Address[]): Promise<ReadonlyMetadataMap> {
     await sleep(5000);
     throw new Error("Unexpected timeout");
   }
@@ -154,18 +151,18 @@ class TimeoutMetadataProvider implements MetadataProvider {
 
 class IncrementProvider implements MetadataProvider {
   counters: Record<string, number> = {};
-  async find(address: Address): Promise<ReadonlyTokenMetadata> {
+  async find(address: Address): Promise<ReadonlyMetadata> {
     if (!this.counters[address.toString()]) {
       this.counters[address.toString()] = 0;
     }
     this.counters[address.toString()] += 1;
     return {};
   }
-  async findMany(addresses: Address[]): Promise<Readonly<Record<string, ReadonlyTokenMetadata>>> {
+  async findMany(addresses: Address[]): Promise<ReadonlyMetadataMap> {
     for (const address of addresses) {
       await this.find(address);
     }
-    return {};
+    return new Map();
   }
   getCount(address: Address): number {
     return this.counters[address.toString()] || 0;

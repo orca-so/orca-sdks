@@ -1,12 +1,12 @@
-import { TokenMetadata } from "./types";
+import { Metadata } from "./types";
 
 export class MetadataUtil {
-  public static isPartial(metadata: Partial<TokenMetadata>): boolean {
+  public static isPartial(metadata: Metadata): boolean {
     return !metadata.name || !metadata.symbol || !metadata.image;
   }
 
-  public static merge(...metadatas: Partial<TokenMetadata | null>[]): Partial<TokenMetadata> {
-    const merged: Partial<TokenMetadata> = {};
+  public static merge(...metadatas: Metadata[]): Metadata {
+    const merged: Partial<Metadata> = {};
     metadatas.forEach((metadata) => {
       if (!metadata) {
         return;

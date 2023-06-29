@@ -1,11 +1,6 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
-import {
-  MetadataProvider,
-  ReadonlyTokenMetadata,
-  ReadonlyTokenMetadataMap,
-  TokenMetadata,
-} from "./types";
+import { MetadataProvider, ReadonlyMetadata, ReadonlyMetadataMap, Metadata } from "./types";
 import { Address, AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 
@@ -27,7 +22,7 @@ export class MetaplexProvider implements MetadataProvider {
     this.queue = new PQueue({ concurrency, interval: intervalMs });
   }
 
-  async find(address: Address): Promise<ReadonlyTokenMetadata> {
+  async find(address: Address): Promise<ReadonlyMetadata> {
     let metadata;
     try {
       metadata = await this.metaplex
@@ -45,7 +40,7 @@ export class MetaplexProvider implements MetadataProvider {
     return transformMetadataV1_1(metadata);
   }
 
-  async findMany(addresses: Address[]): Promise<ReadonlyTokenMetadataMap> {
+  async findMany(addresses: Address[]): Promise<ReadonlyMetadataMap> {
     const mints = AddressUtil.toPubKeys(addresses);
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
     const loaded = await Promise.all(
@@ -59,10 +54,10 @@ export class MetaplexProvider implements MetadataProvider {
         }
       })
     );
-    return Object.fromEntries(
+    return new Map(
       loaded.map((metadata, index) => {
         const mint = mints[index].toBase58();
-        let result: Partial<TokenMetadata> | null = null;
+        let result: Partial<Metadata> | null = null;
         if (metadata) {
           if (!metadata.tokenStandard) {
             result = transformMetadataV1_0(metadata);
@@ -78,8 +73,8 @@ export class MetaplexProvider implements MetadataProvider {
 
 // Token is v1.0 standard. Many 1.0 tokens do not have off-chain JSON metadata.
 // https://docs.metaplex.com/programs/token-metadata/changelog/v1.0
-function transformMetadataV1_0(token: Sft | Nft): Partial<TokenMetadata> {
-  const metadata: Partial<TokenMetadata> = {
+function transformMetadataV1_0(token: Sft | Nft): Partial<Metadata> {
+  const metadata: Partial<Metadata> = {
     symbol: token.symbol,
     name: token.name,
   };
@@ -90,7 +85,7 @@ function transformMetadataV1_0(token: Sft | Nft): Partial<TokenMetadata> {
 }
 
 // Token is v1.1 standard, which means there should be an off-chain JSON metadata file.
-function transformMetadataV1_1(token: Sft | Nft): Partial<TokenMetadata> {
+function transformMetadataV1_1(token: Sft | Nft): Partial<Metadata> {
   if (!token.jsonLoaded || !token.json) {
     console.error(
       `Failed to load v1.1 data for ${token.symbol} - ${token.address.toBase58()} - ${token.uri}`
