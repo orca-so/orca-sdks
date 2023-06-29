@@ -1,7 +1,6 @@
-import { Address } from "@project-serum/anchor";
 import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
 import invariant from "tiny-invariant";
-import { AddressUtil } from "../address-util";
+import { Address, AddressUtil } from "../address-util";
 import { ParsableEntity } from "./parsing";
 
 export async function getParsedAccount<T>(

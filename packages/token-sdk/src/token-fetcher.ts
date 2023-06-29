@@ -1,5 +1,5 @@
 import { Connection } from "@solana/web3.js";
-import { Address } from "@project-serum/anchor";
+import { Address } from "@orca-so/common-sdk";
 import { Token } from "./types";
 import {
   AddressUtil,

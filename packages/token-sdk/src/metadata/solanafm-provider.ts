@@ -1,5 +1,4 @@
-import { AddressUtil } from "@orca-so/common-sdk";
-import { Address } from "@project-serum/anchor";
+import { Address, AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 import { SolanaFmClient, SolanaFmHttpClient, TokenResult } from "./client";
 import {
