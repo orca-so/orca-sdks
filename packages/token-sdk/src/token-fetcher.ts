@@ -4,13 +4,7 @@ import { Token } from "./types";
 import { AddressUtil, ParsableMintInfo } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import {
-  MetadataProvider,
-  MetadataUtil,
-  Metadata,
-  ReadonlyMetadataMap,
-  ReadonlyMetadata,
-} from "./metadata";
+import { MetadataProvider, MetadataUtil, ReadonlyMetadataMap, ReadonlyMetadata } from "./metadata";
 import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
@@ -19,14 +13,12 @@ type ReadonlyToken = Readonly<Token>;
 type ReadonlyTokenMap = Map<string, ReadonlyToken>;
 
 export class TokenFetcher {
-  private readonly connection: Connection;
   private readonly providers: MetadataProvider[] = [];
   private readonly timeoutMs: number;
   private readonly accountFetcher: AccountFetcher<Mint, any>;
   private _cache: Map<string, Token> = new Map();
 
   constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
-    this.connection = connection;
     this.timeoutMs = timeoutMs;
     this.accountFetcher = new SimpleAccountFetcher(
       connection,
