@@ -1,14 +1,14 @@
-import { u64 } from "@solana/spl-token";
+import BN from "bn.js";
 import Decimal from "decimal.js";
 
 /**
  * @category Math
  */
 export class Percentage {
-  readonly numerator: u64;
-  readonly denominator: u64;
+  readonly numerator: BN;
+  readonly denominator: BN;
 
-  constructor(numerator: u64, denominator: u64) {
+  constructor(numerator: BN, denominator: BN) {
     this.numerator = numerator;
     this.denominator = denominator;
   }
@@ -17,9 +17,9 @@ export class Percentage {
     return Percentage.fromFraction(number.toDecimalPlaces(1).mul(10).toNumber(), 1000);
   }
 
-  public static fromFraction(numerator: u64 | number, denominator: u64 | number): Percentage {
-    const num = typeof numerator === "number" ? new u64(numerator.toString()) : numerator;
-    const denom = typeof denominator === "number" ? new u64(denominator.toString()) : denominator;
+  public static fromFraction(numerator: BN | number, denominator: BN | number): Percentage {
+    const num = typeof numerator === "number" ? new BN(numerator.toString()) : numerator;
+    const denom = typeof denominator === "number" ? new BN(denominator.toString()) : denominator;
     return new Percentage(num, denom);
   }
 
@@ -28,7 +28,7 @@ export class Percentage {
   };
 
   public toDecimal() {
-    if (this.denominator.eq(new u64(0))) {
+    if (this.denominator.eq(new BN(0))) {
       return new Decimal(0);
     }
     return new Decimal(this.numerator.toString()).div(new Decimal(this.denominator.toString()));
@@ -46,6 +46,6 @@ export class Percentage {
 
     const newNumerator = p1NumeratorAdjusted.add(p2NumeratorAdjusted);
 
-    return new Percentage(new u64(newNumerator.toString()), new u64(denomLcm.toString()));
+    return new Percentage(new BN(newNumerator.toString()), new BN(denomLcm.toString()));
   }
 }

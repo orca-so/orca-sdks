@@ -1,12 +1,15 @@
-import { PublicKey, Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import {
-  Token,
-  TOKEN_PROGRAM_ID,
   AccountLayout,
-  u64,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   NATIVE_MINT,
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccount,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  setAuthority,
 } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import { BN } from "bn.js";
+import { ZERO } from "../../src/math";
 import { resolveOrCreateATA, resolveOrCreateATAs } from "../../src/web3/ata-util";
 import { TransactionBuilder } from "../../src/web3/transactions";
 import { createNewMint, createTestContext, requestAirdrop } from "../test-context";
@@ -17,9 +20,6 @@ describe("ata-util", () => {
   const ctx = createTestContext();
   const { connection, wallet } = ctx;
 
-  const tokenGetATA = (owner: PublicKey, mint: PublicKey) =>
-    Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, mint, owner);
-
   beforeAll(async () => {
     await requestAirdrop(ctx);
   });
@@ -28,13 +28,13 @@ describe("ata-util", () => {
     const { connection, wallet } = ctx;
 
     // verify address & instruction
-    const notExpected = await tokenGetATA(wallet.publicKey, NATIVE_MINT);
+    const notExpected = getAssociatedTokenAddressSync(wallet.publicKey, NATIVE_MINT);
     const resolved = await resolveOrCreateATA(
       connection,
       wallet.publicKey,
       NATIVE_MINT,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new u64(LAMPORTS_PER_SOL),
+      new BN(LAMPORTS_PER_SOL),
       wallet.publicKey,
       false
     );
@@ -50,13 +50,13 @@ describe("ata-util", () => {
     const mint = await createNewMint(ctx);
 
     // verify address & instruction
-    const expected = await tokenGetATA(wallet.publicKey, mint.publicKey);
+    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
     const resolved = await resolveOrCreateATA(
       connection,
       wallet.publicKey,
-      mint.publicKey,
+      mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new u64(0),
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -79,7 +79,12 @@ describe("ata-util", () => {
   it("resolveOrCreateATA, exist, modeIdempotent = false", async () => {
     const mint = await createNewMint(ctx);
 
-    const expected = await mint.createAssociatedTokenAccount(wallet.publicKey);
+    const expected = await createAssociatedTokenAccount(
+      ctx.connection,
+      wallet.payer,
+      mint,
+      wallet.publicKey
+    );
     const preAccountData = await connection.getAccountInfo(expected);
     expect(preAccountData).not.toBeNull();
 
@@ -87,9 +92,9 @@ describe("ata-util", () => {
     const resolved = await resolveOrCreateATA(
       connection,
       wallet.publicKey,
-      mint.publicKey,
+      mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new u64(0),
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -100,13 +105,13 @@ describe("ata-util", () => {
   it("resolveOrCreateATA, created before execution, modeIdempotent = false", async () => {
     const mint = await createNewMint(ctx);
 
-    const expected = await tokenGetATA(wallet.publicKey, mint.publicKey);
+    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
     const resolved = await resolveOrCreateATA(
       connection,
       wallet.publicKey,
-      mint.publicKey,
+      mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new u64(0),
+      ZERO,
       wallet.publicKey,
       false
     );
@@ -115,7 +120,7 @@ describe("ata-util", () => {
     expect(resolved.instructions[0].data.length).toEqual(0); // no instruction data
 
     // created before execution
-    await mint.createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey);
     const accountData = await connection.getAccountInfo(expected);
     expect(accountData).not.toBeNull();
 
@@ -128,13 +133,13 @@ describe("ata-util", () => {
   it("resolveOrCreateATA, created before execution, modeIdempotent = true", async () => {
     const mint = await createNewMint(ctx);
 
-    const expected = await tokenGetATA(wallet.publicKey, mint.publicKey);
+    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
     const resolved = await resolveOrCreateATA(
       connection,
       wallet.publicKey,
-      mint.publicKey,
+      mint,
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new u64(0),
+      ZERO,
       wallet.publicKey,
       true
     );
@@ -143,7 +148,7 @@ describe("ata-util", () => {
     expect(resolved.instructions[0].data[0]).toEqual(1); // 1 byte data
 
     // created before execution
-    await mint.createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey);
     const accountData = await connection.getAccountInfo(expected);
     expect(accountData).not.toBeNull();
 
@@ -157,15 +162,13 @@ describe("ata-util", () => {
     const mints = await Promise.all([createNewMint(ctx), createNewMint(ctx), createNewMint(ctx)]);
 
     // create first ATA
-    await mints[0].createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey);
 
-    const expected = await Promise.all(
-      mints.map((mint) => tokenGetATA(wallet.publicKey, mint.publicKey))
-    );
+    const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey));
     const resolved = await resolveOrCreateATAs(
       connection,
       wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint.publicKey, wrappedSolAmountIn: new u64(0) })),
+      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
       wallet.publicKey,
       false
@@ -180,7 +183,7 @@ describe("ata-util", () => {
     expect(resolved[2].instructions[0].data.length).toEqual(0); // no instruction data
 
     // create second ATA before execution
-    await mints[1].createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey);
 
     const preAccountData = await connection.getMultipleAccountsInfo(expected);
     expect(preAccountData[0]).not.toBeNull();
@@ -197,15 +200,14 @@ describe("ata-util", () => {
     const mints = await Promise.all([createNewMint(ctx), createNewMint(ctx), createNewMint(ctx)]);
 
     // create first ATA
-    await mints[0].createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey);
 
-    const expected = await Promise.all(
-      mints.map((mint) => tokenGetATA(wallet.publicKey, mint.publicKey))
-    );
+    const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey));
+
     const resolved = await resolveOrCreateATAs(
       connection,
       wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint.publicKey, wrappedSolAmountIn: new u64(0) })),
+      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
       () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
       wallet.publicKey,
       true
@@ -220,7 +222,7 @@ describe("ata-util", () => {
     expect(resolved[2].instructions[0].data[0]).toEqual(1); // 1 byte data
 
     // create second ATA before execution
-    await mints[1].createAssociatedTokenAccount(wallet.publicKey);
+    await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey);
 
     const preAccountData = await connection.getMultipleAccountsInfo(expected);
     expect(preAccountData[0]).not.toBeNull();
@@ -242,45 +244,37 @@ describe("ata-util", () => {
     const anotherWallet = Keypair.generate();
     const mint = await createNewMint(ctx);
 
-    const ata = await mint.createAssociatedTokenAccount(wallet.publicKey);
+    const ata = await createAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      mint,
+      wallet.publicKey
+    );
 
     // should be ok
-    const preOwnerChanged = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint.publicKey,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+    const preOwnerChanged = await resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
+      connection.getMinimumBalanceForRentExemption(AccountLayout.span)
     );
     expect(preOwnerChanged.address.equals(ata)).toBeTruthy();
 
     // owner change
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction({
-      instructions: [
-        Token.createSetAuthorityInstruction(
-          TOKEN_PROGRAM_ID,
-          ata,
-          anotherWallet.publicKey,
-          "AccountOwner",
-          wallet.publicKey,
-          []
-        ),
-      ],
-      cleanupInstructions: [],
-      signers: [],
-    });
-    await builder.buildAndExecute();
+    await setAuthority(
+      connection,
+      ctx.wallet.payer,
+      ata,
+      wallet.publicKey,
+      2,
+      anotherWallet.publicKey,
+      []
+    );
 
     // verify that owner have been changed
-    const changed = await mint.getAccountInfo(ata);
+    const changed = await getAccount(connection, ata);
     expect(changed.owner.equals(anotherWallet.publicKey)).toBeTruthy();
 
     // should be failed
-    const postOwnerChangedPromise = resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint.publicKey,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+    const postOwnerChangedPromise = resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
+      connection.getMinimumBalanceForRentExemption(AccountLayout.span)
     );
     await expect(postOwnerChangedPromise).rejects.toThrow(/ATA with change of ownership detected/);
   });

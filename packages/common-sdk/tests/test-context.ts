@@ -1,4 +1,4 @@
-import { Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createAssociatedTokenAccountIdempotent, createMint } from "@solana/spl-token";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import TestWallet from "./utils/test-wallet";
 export const DEFAULT_RPC_ENDPOINT_URL = "http://localhost:8899";
@@ -24,14 +24,13 @@ export async function requestAirdrop(ctx: TestContext, numSol: number = 1000): P
   await ctx.connection.confirmTransaction({ signature, ...latestBlockhash });
 }
 
-export function createNewMint(ctx: TestContext): Promise<Token> {
-  return Token.createMint(
+export function createNewMint(ctx: TestContext): Promise<PublicKey> {
+  return createMint(
     ctx.connection,
     ctx.wallet.payer,
     ctx.wallet.publicKey,
     ctx.wallet.publicKey,
-    6,
-    TOKEN_PROGRAM_ID
+    6
   );
 }
 
@@ -39,7 +38,12 @@ export async function createAssociatedTokenAccount(
   ctx: TestContext,
   mint?: PublicKey
 ): Promise<{ ata: PublicKey; mint: PublicKey }> {
-  let tokenMint = mint || (await createNewMint(ctx)).publicKey;
-  const token = new Token(ctx.connection, tokenMint, TOKEN_PROGRAM_ID, ctx.wallet.payer);
-  return { ata: await token.createAssociatedTokenAccount(ctx.wallet.publicKey), mint: tokenMint };
+  let tokenMint = mint || (await createNewMint(ctx));
+  const ataKey = await createAssociatedTokenAccountIdempotent(
+    ctx.connection,
+    ctx.wallet.payer,
+    tokenMint,
+    ctx.wallet.publicKey
+  );
+  return { ata: ataKey, mint: tokenMint };
 }

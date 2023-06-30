@@ -3,11 +3,9 @@ import { isVersionedTransaction, Wallet } from "../../src/web3";
 
 // Ported from @coral-xyz/anchor for testing purposes.
 export default class TestWallet implements Wallet {
-  constructor(readonly payer: Keypair) { }
+  constructor(readonly payer: Keypair) {}
 
-  async signTransaction<T extends Transaction | VersionedTransaction>(
-    tx: T
-  ): Promise<T> {
+  async signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T> {
     if (isVersionedTransaction(tx)) {
       tx.sign([this.payer]);
     } else {
@@ -17,9 +15,7 @@ export default class TestWallet implements Wallet {
     return tx;
   }
 
-  async signAllTransactions<T extends Transaction | VersionedTransaction>(
-    txs: T[]
-  ): Promise<T[]> {
+  async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
     return txs.map((t) => {
       if (isVersionedTransaction(t)) {
         t.sign([this.payer]);
