@@ -40,7 +40,10 @@ export class SolanaFmHttpClient implements SolanaFmClient {
     invariant(response.ok, `Unexpected status code fetching ${url}: ${response.status}`);
     const json = await response.json();
     invariant(isGetTokensResponse(json), "Unexpected SolanaFM getTokens response type");
-    invariant(json.status === "success", "Unexpected SolanaFM getTokens response status");
+    invariant(
+      json.status.localeCompare("success", undefined, { sensitivity: "base" }) === 0,
+      "Unexpected SolanaFM getTokens response status"
+    );
     return json.result;
   }
 }
