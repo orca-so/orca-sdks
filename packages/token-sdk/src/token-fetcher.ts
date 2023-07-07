@@ -1,11 +1,12 @@
 import { Connection } from "@solana/web3.js";
 import { Token } from "./types";
 import {
+  AccountFetcher,
   Address,
   AddressUtil,
-  getMultipleParsedAccounts,
-  getParsedAccount,
+  ParsableEntity,
   ParsableMintInfo,
+  SimpleAccountFetcher,
 } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
