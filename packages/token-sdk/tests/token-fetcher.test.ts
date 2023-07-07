@@ -1,4 +1,4 @@
-import { Address } from "@project-serum/anchor";
+import { Address } from "@orca-so/common-sdk";
 import { FileSystemProvider, MetadataProvider, ReadonlyTokenMetadata } from "../src/metadata";
 import { TokenFetcher } from "../src/token-fetcher";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
@@ -13,8 +13,7 @@ describe("token-fetcher", () => {
   });
 
   it("provider priority", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p1 = new FileSystemProvider({
       [mint]: { name: "P1 Token", symbol: "P1", image: "https://p1.com" },
     });
@@ -30,8 +29,7 @@ describe("token-fetcher", () => {
   });
 
   it("merge results", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p0 = new IncrementProvider();
     const p1 = new FileSystemProvider({
       [mint]: { symbol: "TOKEN_SYMBOL" },
@@ -60,8 +58,7 @@ describe("token-fetcher", () => {
   });
 
   it("cache entry with partial metadata is cache hit", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p1 = new FileSystemProvider({
       [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
     });
@@ -79,8 +76,7 @@ describe("token-fetcher", () => {
   });
 
   it("find with refresh fetches new data", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p1 = new FileSystemProvider({
       [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
     });
@@ -98,8 +94,7 @@ describe("token-fetcher", () => {
   });
 
   it("findMany with refresh fetches new data", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p1 = new FileSystemProvider({
       [mint]: { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" },
     });
@@ -117,8 +112,7 @@ describe("token-fetcher", () => {
   });
 
   it("timeout recovers", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const timeoutProvider = new TimeoutMetadataProvider();
     const fetcher = new TokenFetcher(ctx.connection, 10).addProvider(timeoutProvider);
     const metadata = await fetcher.find(mint);
@@ -133,8 +127,7 @@ describe("token-fetcher", () => {
   });
 
   it("provider does not get invoked if all metadata found before", async () => {
-    const token = await createNewMint(ctx, 9);
-    const mint = token.publicKey.toBase58();
+    const mint = (await createNewMint(ctx, 9)).toString();
     const p1 = new FileSystemProvider({
       [mint]: { name: "P1 Token", symbol: "P1", image: "https://p1.com" },
     });

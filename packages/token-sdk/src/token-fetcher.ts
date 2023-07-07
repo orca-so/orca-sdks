@@ -1,5 +1,5 @@
 import { Connection } from "@solana/web3.js";
-import { Address } from "@project-serum/anchor";
+import { Address } from "@orca-so/common-sdk";
 import { Token } from "./types";
 import {
   AddressUtil,
@@ -7,7 +7,7 @@ import {
   getParsedAccount,
   ParsableMintInfo,
 } from "@orca-so/common-sdk";
-import { MintInfo } from "@solana/spl-token";
+import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
 import { MetadataProvider, MetadataUtil, TokenMetadata } from "./metadata";
 import pTimeout from "p-timeout";
@@ -74,7 +74,7 @@ export class TokenFetcher {
     if (misses.length > 0) {
       const mintInfos = (
         await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
-      ).filter((mintInfo): mintInfo is MintInfo => mintInfo !== null);
+      ).filter((mintInfo): mintInfo is Mint => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();

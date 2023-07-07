@@ -1,4 +1,4 @@
-import { Address } from "@project-serum/anchor";
+import { Address } from "@orca-so/common-sdk";
 
 export type ReadonlyTokenMetadata = Readonly<Partial<TokenMetadata>> | null;
 export type ReadonlyTokenMetadataMap = Readonly<Record<string, ReadonlyTokenMetadata>>;

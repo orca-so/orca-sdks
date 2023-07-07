@@ -1,13 +1,12 @@
 import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
-import { Address } from "@project-serum/anchor";
 import {
   MetadataProvider,
   ReadonlyTokenMetadata,
   ReadonlyTokenMetadataMap,
   TokenMetadata,
 } from "./types";
-import { AddressUtil } from "@orca-so/common-sdk";
+import { Address, AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 
 const DEFAULT_CONCURRENCY = 5;
