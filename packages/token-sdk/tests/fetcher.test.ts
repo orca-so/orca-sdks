@@ -5,7 +5,7 @@ import {
   ReadonlyMetadata,
   ReadonlyMetadataMap,
 } from "../src/metadata";
-import { TokenFetcher } from "../src/token-fetcher";
+import { TokenFetcher } from "../src/fetcher";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
 
 jest.setTimeout(100 * 1000 /* ms */);
