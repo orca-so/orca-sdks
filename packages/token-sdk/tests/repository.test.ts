@@ -138,9 +138,14 @@ describe.only("token-fetcher", () => {
       .addMints(mints, ["whitelisted"])
       .excludeMints([mint1])
       .addMint(mint1);
-    const tokens = await repo.getAll();
+    let tokens = await repo.getAll();
     expect(tokens.length).toEqual(2);
     expect(tokens[0].mint).toEqual(mint2);
     expect(tokens[1].mint).toEqual(mint3);
+
+    repo.excludeMintlist({ name: "Test Mintlist", version: "0.0.1", mints: [mint2] });
+    tokens = await repo.getAll();
+    expect(tokens.length).toEqual(1);
+    expect(tokens[0].mint).toEqual(mint3);
   });
 });

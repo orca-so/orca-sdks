@@ -4,6 +4,14 @@ import { TokenFetcher } from "./fetcher";
 
 export type TokenWithTags = Token & { tags: string[] };
 
+/**
+ * Repository for managing mints, associated tags, and fetching metadata.
+ *
+ * Once mints are tagged, they can be retrieved by the tag. This is useful for business logic
+ * handled outside of this class. An example is handling "whitelisted" mints in a UI. The mints can
+ * be tagged with "whitelisted" and then retrieved by that tag. Alternatively, all mints managed
+ * by an instance of this class can be retrieved to represent all tokens in the local state.
+ */
 export class TokenRepository {
   private readonly mintMap: Map<string, string[]> = new Map();
   private readonly tagMap: Map<string, string[]> = new Map();
@@ -37,6 +45,10 @@ export class TokenRepository {
   excludeMints(mints: Address[]): TokenRepository {
     mints.forEach((mint) => this.excluded.add(mint.toString()));
     return this;
+  }
+
+  excludeMintlist(mintlist: Mintlist): TokenRepository {
+    return this.excludeMints(mintlist.mints);
   }
 
   async getAll(): Promise<TokenWithTags[]> {
