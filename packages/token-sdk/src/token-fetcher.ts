@@ -1,12 +1,11 @@
 import { Connection } from "@solana/web3.js";
 import { Token } from "./types";
 import {
-  AccountFetcher,
   Address,
   AddressUtil,
-  ParsableEntity,
   ParsableMintInfo,
-  SimpleAccountFetcher,
+  getMultipleParsedAccounts,
+  getParsedAccount,
 } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
@@ -17,17 +16,12 @@ const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
-  private readonly timeoutMs: number;
-  private readonly accountFetcher: AccountFetcher<Mint, any>;
   private _cache: Map<string, Token> = new Map();
 
-  constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
-    this.timeoutMs = timeoutMs;
-    this.accountFetcher = new SimpleAccountFetcher(
-      connection,
-      new Map<ParsableEntity<Mint>, number>([[ParsableMintInfo, Number.POSITIVE_INFINITY]])
-    );
-  }
+  constructor(
+    private readonly connection: Connection,
+    private readonly timeoutMs: number = TIMEOUT_MS
+  ) {}
 
   public setCache(cache: Map<string, Token>): TokenFetcher {
     this._cache = cache;
@@ -43,13 +37,15 @@ export class TokenFetcher {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
     if (refresh || !this._cache.has(mintString)) {
-      const mintInfo = await this.request(this.accountFetcher.getAccount(mint, ParsableMintInfo));
+      const mintInfo = await this.request(
+        getParsedAccount(this.connection, mint, ParsableMintInfo)
+      );
       invariant(mintInfo, "Mint not found");
       this._cache.set(mintString, { mint: mintString, decimals: mintInfo.decimals });
 
       for (const provider of this.providers) {
-        let token = this._cache.get(mintString);
         try {
+          let token = this._cache.get(mintString);
           invariant(token, "Expecting token to be in cache");
           const metadata = await this.request(provider.find(address));
           token = mergeMetadata(token, metadata);
@@ -63,9 +59,7 @@ export class TokenFetcher {
         }
       }
     }
-    const token = this._cache.get(mintString);
-    invariant(token, "Expecting token to be in cache");
-    return token;
+    return this._cache.get(mintString)!;
   }
 
   public async findMany(
@@ -77,7 +71,7 @@ export class TokenFetcher {
 
     if (misses.length > 0) {
       const mintInfos = (
-        await this.request(this.accountFetcher.getAccountsAsArray(misses, ParsableMintInfo))
+        await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
       ).filter((mintInfo): mintInfo is Mint => mintInfo !== null);
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
@@ -114,13 +108,7 @@ export class TokenFetcher {
       }
     }
 
-    return new Map(
-      mints.map((mint) => {
-        const cachedValue = this._cache.get(mint.toBase58());
-        invariant(cachedValue, "expecting mints to be in cache");
-        return [mint.toBase58(), cachedValue];
-      })
-    );
+    return new Map(mints.map((mint) => [mint.toBase58(), this._cache.get(mint.toBase58())!]));
   }
 
   private request<T>(promise: PromiseLike<T>) {
