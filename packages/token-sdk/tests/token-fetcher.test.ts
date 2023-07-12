@@ -1,10 +1,5 @@
 import { Address } from "@orca-so/common-sdk";
-import {
-  FileSystemProvider,
-  MetadataProvider,
-  ReadonlyMetadata,
-  ReadonlyMetadataMap,
-} from "../src/metadata";
+import { FileSystemProvider, Metadata, MetadataProvider } from "../src/metadata";
 import { TokenFetcher } from "../src/token-fetcher";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
 
@@ -139,11 +134,11 @@ describe("token-fetcher", () => {
 });
 
 class TimeoutMetadataProvider implements MetadataProvider {
-  async find(_: Address): Promise<ReadonlyMetadata> {
+  async find(_: Address): Promise<Readonly<Metadata> | null> {
     await sleep(5000);
     throw new Error("Unexpected timeout");
   }
-  async findMany(_: Address[]): Promise<ReadonlyMetadataMap> {
+  async findMany(_: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     await sleep(5000);
     throw new Error("Unexpected timeout");
   }
@@ -151,14 +146,14 @@ class TimeoutMetadataProvider implements MetadataProvider {
 
 class IncrementProvider implements MetadataProvider {
   counters: Record<string, number> = {};
-  async find(address: Address): Promise<ReadonlyMetadata> {
+  async find(address: Address): Promise<Readonly<Metadata> | null> {
     if (!this.counters[address.toString()]) {
       this.counters[address.toString()] = 0;
     }
     this.counters[address.toString()] += 1;
     return {};
   }
-  async findMany(addresses: Address[]): Promise<ReadonlyMetadataMap> {
+  async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     for (const address of addresses) {
       await this.find(address);
     }

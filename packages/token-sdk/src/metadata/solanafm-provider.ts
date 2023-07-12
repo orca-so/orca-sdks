@@ -1,7 +1,7 @@
 import { Address, AddressUtil } from "@orca-so/common-sdk";
 import PQueue from "p-queue";
 import { SolanaFmClient, SolanaFmHttpClient, TokenResult } from "./client";
-import { MetadataProvider, ReadonlyMetadata, ReadonlyMetadataMap, Metadata } from "./types";
+import { MetadataProvider, Metadata } from "./types";
 
 const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
@@ -21,7 +21,7 @@ export class SolanaFmProvider implements MetadataProvider {
     this.client = new SolanaFmHttpClient();
   }
 
-  async find(address: Address): Promise<ReadonlyMetadata> {
+  async find(address: Address): Promise<Readonly<Metadata> | null> {
     const mint = AddressUtil.toPubKey(address);
     try {
       const token = await this.client.getToken(mint.toBase58());
@@ -32,7 +32,7 @@ export class SolanaFmProvider implements MetadataProvider {
     }
   }
 
-  async findMany(addresses: Address[]): Promise<ReadonlyMetadataMap> {
+  async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     const mints = AddressUtil.toPubKeys(addresses).map((m) => m.toBase58());
     const responses: Promise<TokenResult[]>[] = [];
     const chunkSize = 50;
@@ -51,7 +51,7 @@ export class SolanaFmProvider implements MetadataProvider {
   }
 }
 
-function convertToTokenMetadata(value: TokenResult): Partial<Metadata> {
+function convertToTokenMetadata(value: TokenResult): Metadata {
   return {
     symbol: value.data.symbol,
     name: value.data.tokenName,

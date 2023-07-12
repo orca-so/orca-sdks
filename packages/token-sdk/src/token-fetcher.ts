@@ -10,13 +10,10 @@ import {
 } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import { MetadataProvider, MetadataUtil, ReadonlyMetadataMap, ReadonlyMetadata } from "./metadata";
+import { Metadata, MetadataProvider, MetadataUtil } from "./metadata";
 import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
-
-type ReadonlyToken = Readonly<Token>;
-type ReadonlyTokenMap = Map<string, ReadonlyToken>;
 
 export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
@@ -42,26 +39,27 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address, refresh: boolean = false): Promise<ReadonlyToken> {
+  public async find(address: Address, refresh: boolean = false): Promise<Readonly<Token>> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
-    if (refresh || !this.contains(mintString)) {
+    if (refresh || !this._cache.has(mintString)) {
       const mintInfo = await this.request(this.accountFetcher.getAccount(mint, ParsableMintInfo));
       invariant(mintInfo, "Mint not found");
-      this._cache.set(mintString, {
+
+      let token: Token = {
         mint: mintString,
         decimals: mintInfo.decimals,
-      });
-
+      };
       for (const provider of this.providers) {
         try {
           const metadata = await this.request(provider.find(address));
-          this._cache.set(mintString, mergeMetadata(this._cache.get(mintString)!, metadata));
+          token = mergeMetadata(token, metadata);
+          this._cache.set(mintString, token);
         } catch (err) {
           console.warn(`Failed to fetch from ${provider.constructor.name}: ${err}`);
           continue;
         }
-        if (!MetadataUtil.isPartial(this._cache.get(mintString)!)) {
+        if (!MetadataUtil.isPartial(token)) {
           break;
         }
       }
@@ -69,9 +67,12 @@ export class TokenFetcher {
     return this._cache.get(mintString)!;
   }
 
-  public async findMany(addresses: Address[], refresh: boolean = false): Promise<ReadonlyTokenMap> {
+  public async findMany(
+    addresses: Address[],
+    refresh: boolean = false
+  ): Promise<ReadonlyMap<string, Token>> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const misses = refresh ? mints : mints.filter((mint) => !this.contains(mint.toBase58()));
+    const misses = refresh ? mints : mints.filter((mint) => !this._cache.has(mint.toBase58()));
 
     if (misses.length > 0) {
       const mintInfos = (
@@ -88,7 +89,7 @@ export class TokenFetcher {
 
       let next = misses;
       for (const provider of this.providers) {
-        let metadatas: ReadonlyMetadataMap;
+        let metadatas: ReadonlyMap<string, Metadata | null>;
         try {
           metadatas = await this.request(provider.findMany(next));
         } catch (e) {
@@ -98,11 +99,11 @@ export class TokenFetcher {
         next = [];
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
-          this._cache.set(
-            mintString,
-            mergeMetadata(this._cache.get(mintString)!, metadatas.get(mintString))
-          );
-          if (MetadataUtil.isPartial(this._cache.get(mintString)!)) {
+          const cachedValue = this._cache.get(mintString);
+          invariant(cachedValue, "Cache should have been populated with mint info");
+          const token = mergeMetadata(cachedValue, metadatas.get(mintString));
+          this._cache.set(mintString, token);
+          if (MetadataUtil.isPartial(token)) {
             next.push(mint);
           }
         });
@@ -112,11 +113,13 @@ export class TokenFetcher {
       }
     }
 
-    return new Map(mints.map((mint) => [mint.toBase58(), this._cache.get(mint.toBase58())!]));
-  }
-
-  private contains(mint: string): boolean {
-    return this._cache.get(mint) !== undefined;
+    return new Map(
+      mints.map((mint) => {
+        const cachedValue = this._cache.get(mint.toBase58());
+        invariant(cachedValue, "expecting mints to be in cache");
+        return [mint.toBase58(), cachedValue];
+      })
+    );
   }
 
   private request<T>(promise: PromiseLike<T>) {
@@ -124,8 +127,8 @@ export class TokenFetcher {
   }
 }
 
-function mergeMetadata(token: Token, metadata?: ReadonlyMetadata): Token {
-  if (metadata === null || metadata === undefined) {
+function mergeMetadata(token: Token, metadata?: Readonly<Metadata> | null): Token {
+  if (!metadata) {
     return token;
   }
   return {

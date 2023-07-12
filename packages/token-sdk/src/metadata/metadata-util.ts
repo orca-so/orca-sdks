@@ -1,12 +1,15 @@
 import { Metadata } from "./types";
 
 export class MetadataUtil {
-  public static isPartial(metadata: Metadata): boolean {
+  public static isPartial(metadata?: Metadata | null): boolean {
+    if (!metadata) {
+      return true;
+    }
     return !metadata.name || !metadata.symbol || !metadata.image;
   }
 
   public static merge(...metadatas: Metadata[]): Metadata {
-    const merged: Partial<Metadata> = {};
+    const merged: Metadata = {};
     metadatas.forEach((metadata) => {
       if (!metadata) {
         return;
