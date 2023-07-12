@@ -1,11 +1,6 @@
 import { Address, AddressUtil } from "@orca-so/common-sdk";
 import { CoinGeckoClient, CoinGeckoHttpClient, ContractResponse } from "./client/coingecko-client";
-import {
-  MetadataProvider,
-  ReadonlyTokenMetadata,
-  ReadonlyTokenMetadataMap,
-  TokenMetadata,
-} from "./types";
+import { MetadataProvider, Metadata } from "./types";
 import PQueue from "p-queue";
 
 const DEFAULT_CONCURRENCY = 1;
@@ -28,7 +23,7 @@ export class CoinGeckoProvider implements MetadataProvider {
     this.queue = new PQueue({ concurrency, interval: intervalMs });
   }
 
-  async find(address: Address): Promise<ReadonlyTokenMetadata> {
+  async find(address: Address): Promise<Readonly<Metadata> | null> {
     const mintPubKey = AddressUtil.toPubKey(address);
     try {
       const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58());
@@ -39,15 +34,15 @@ export class CoinGeckoProvider implements MetadataProvider {
     }
   }
 
-  async findMany(addresses: Address[]): Promise<ReadonlyTokenMetadataMap> {
+  async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     const metas = await this.queue.addAll(addresses.map((a) => async () => this.find(a)));
-    return Object.fromEntries(
+    return new Map(
       AddressUtil.toPubKeys(addresses).map((mint, index) => [mint.toBase58(), metas[index]])
     );
   }
 }
 
-function convertToTokenMetadata(contract: ContractResponse | null): Partial<TokenMetadata> | null {
+function convertToTokenMetadata(contract: ContractResponse | null): Metadata | null {
   if (!contract) {
     return null;
   }

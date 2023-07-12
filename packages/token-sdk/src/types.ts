@@ -1,21 +1,10 @@
-import { TokenMetadata } from "./metadata";
+import { Address } from "@orca-so/common-sdk";
+import { Metadata } from "./metadata";
 
-export type Token = TokenMint & TokenDecimals & Partial<TokenMetadata>;
-
-export interface TokenMint {
-  mint: string;
-}
-
-export interface TokenDecimals {
-  decimals: number;
-}
-
-export interface Tokenlist {
-  name: string;
-  tokens: Token[];
-}
+export type Token = { mint: Address; decimals: number } & Metadata;
 
 export interface Mintlist {
   name: string;
-  mints: string[];
+  version: string;
+  mints: Address[];
 }

@@ -1,34 +1,29 @@
 import { Connection } from "@solana/web3.js";
-import { Address } from "@orca-so/common-sdk";
 import { Token } from "./types";
 import {
+  Address,
   AddressUtil,
+  ParsableMintInfo,
   getMultipleParsedAccounts,
   getParsedAccount,
-  ParsableMintInfo,
 } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import { MetadataProvider, MetadataUtil, TokenMetadata } from "./metadata";
+import { Metadata, MetadataProvider, MetadataUtil } from "./metadata";
 import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
-type ReadonlyToken = Readonly<Token>;
-type ReadonlyTokenMap = Readonly<Record<string, ReadonlyToken>>;
-
 export class TokenFetcher {
-  private readonly connection: Connection;
   private readonly providers: MetadataProvider[] = [];
-  private readonly timeoutMs: number;
-  private _cache: Record<string, Token> = {};
+  private _cache: Map<string, Token> = new Map();
 
-  constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
-    this.connection = connection;
-    this.timeoutMs = timeoutMs;
-  }
+  constructor(
+    private readonly connection: Connection,
+    private readonly timeoutMs: number = TIMEOUT_MS
+  ) {}
 
-  public setCache(cache: Record<string, Token>): TokenFetcher {
+  public setCache(cache: Map<string, Token>): TokenFetcher {
     this._cache = cache;
     return this;
   }
@@ -38,38 +33,41 @@ export class TokenFetcher {
     return this;
   }
 
-  public async find(address: Address, refresh: boolean = false): Promise<ReadonlyToken> {
+  public async find(address: Address, refresh: boolean = false): Promise<Readonly<Token>> {
     const mint = AddressUtil.toPubKey(address);
     const mintString = mint.toBase58();
-    if (refresh || !this.contains(mintString)) {
+    if (refresh || !this._cache.has(mintString)) {
       const mintInfo = await this.request(
         getParsedAccount(this.connection, mint, ParsableMintInfo)
       );
-      invariant(mintInfo, "Mint info not found");
-      this._cache[mintString] = {
-        mint: mintString,
-        decimals: mintInfo.decimals,
-      };
+      invariant(mintInfo, "Mint not found");
+      this._cache.set(mintString, { mint: mintString, decimals: mintInfo.decimals });
 
       for (const provider of this.providers) {
         try {
+          let token = this._cache.get(mintString);
+          invariant(token, "Expecting token to be in cache");
           const metadata = await this.request(provider.find(address));
-          this._cache[mintString] = mergeMetadata(this._cache[mintString], metadata);
+          token = mergeMetadata(token, metadata);
+          this._cache.set(mintString, token);
+          if (!MetadataUtil.isPartial(token)) {
+            break;
+          }
         } catch (err) {
           console.warn(`Failed to fetch from ${provider.constructor.name}: ${err}`);
           continue;
         }
-        if (!MetadataUtil.isPartial(this._cache[mintString])) {
-          break;
-        }
       }
     }
-    return { ...this._cache[mintString] };
+    return this._cache.get(mintString)!;
   }
 
-  public async findMany(addresses: Address[], refresh: boolean = false): Promise<ReadonlyTokenMap> {
+  public async findMany(
+    addresses: Address[],
+    refresh: boolean = false
+  ): Promise<ReadonlyMap<string, Token>> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const misses = refresh ? mints : mints.filter((mint) => !this.contains(mint.toBase58()));
+    const misses = refresh ? mints : mints.filter((mint) => !this._cache.has(mint.toBase58()));
 
     if (misses.length > 0) {
       const mintInfos = (
@@ -78,26 +76,29 @@ export class TokenFetcher {
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
-        this._cache[mintString] = {
+        this._cache.set(mintString, {
           mint: mintString,
           decimals: mintInfos[index].decimals,
-        };
+        });
       });
 
       let next = misses;
       for (const provider of this.providers) {
-        let metadatas: Record<string, Partial<TokenMetadata> | null>;
+        let metadatas: ReadonlyMap<string, Metadata | null>;
         try {
           metadatas = await this.request(provider.findMany(next));
         } catch (e) {
           console.warn(`Metadata provider ${provider.constructor.name} timed out. Skipping...`);
-          metadatas = {};
+          metadatas = new Map();
         }
         next = [];
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
-          this._cache[mintString] = mergeMetadata(this._cache[mintString], metadatas[mintString]);
-          if (MetadataUtil.isPartial(this._cache[mintString])) {
+          const cachedValue = this._cache.get(mintString);
+          invariant(cachedValue, "Expecting token to be in cache");
+          const token = mergeMetadata(cachedValue, metadatas.get(mintString));
+          this._cache.set(mintString, token);
+          if (MetadataUtil.isPartial(token)) {
             next.push(mint);
           }
         });
@@ -107,13 +108,7 @@ export class TokenFetcher {
       }
     }
 
-    return Object.fromEntries(
-      mints.map((mint) => [mint.toBase58(), { ...this._cache[mint.toBase58()] }])
-    );
-  }
-
-  private contains(mint: string): boolean {
-    return !!this._cache[mint];
+    return new Map(mints.map((mint) => [mint.toBase58(), this._cache.get(mint.toBase58())!]));
   }
 
   private request<T>(promise: PromiseLike<T>) {
@@ -121,8 +116,8 @@ export class TokenFetcher {
   }
 }
 
-function mergeMetadata(token: Token, metadata: Partial<TokenMetadata> | null): Token {
-  if (metadata === null) {
+function mergeMetadata(token: Token, metadata?: Readonly<Metadata> | null): Token {
+  if (!metadata) {
     return token;
   }
   return {
