@@ -45,26 +45,27 @@ export class TokenFetcher {
     if (refresh || !this._cache.has(mintString)) {
       const mintInfo = await this.request(this.accountFetcher.getAccount(mint, ParsableMintInfo));
       invariant(mintInfo, "Mint not found");
+      this._cache.set(mintString, { mint: mintString, decimals: mintInfo.decimals });
 
-      let token: Token = {
-        mint: mintString,
-        decimals: mintInfo.decimals,
-      };
       for (const provider of this.providers) {
+        let token = this._cache.get(mintString);
         try {
+          invariant(token, "Expecting token to be in cache");
           const metadata = await this.request(provider.find(address));
           token = mergeMetadata(token, metadata);
           this._cache.set(mintString, token);
+          if (!MetadataUtil.isPartial(token)) {
+            break;
+          }
         } catch (err) {
           console.warn(`Failed to fetch from ${provider.constructor.name}: ${err}`);
           continue;
         }
-        if (!MetadataUtil.isPartial(token)) {
-          break;
-        }
       }
     }
-    return this._cache.get(mintString)!;
+    const token = this._cache.get(mintString);
+    invariant(token, "Expecting token to be in cache");
+    return token;
   }
 
   public async findMany(
@@ -100,7 +101,7 @@ export class TokenFetcher {
         misses.forEach((mint) => {
           const mintString = mint.toBase58();
           const cachedValue = this._cache.get(mintString);
-          invariant(cachedValue, "Cache should have been populated with mint info");
+          invariant(cachedValue, "Expecting token to be in cache");
           const token = mergeMetadata(cachedValue, metadatas.get(mintString));
           this._cache.set(mintString, token);
           if (MetadataUtil.isPartial(token)) {
