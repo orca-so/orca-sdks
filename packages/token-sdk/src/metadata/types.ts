@@ -1,11 +1,8 @@
 import { Address } from "@orca-so/common-sdk";
 
-export type ReadonlyMetadata = Readonly<Metadata> | null;
-export type ReadonlyMetadataMap = Map<string, ReadonlyMetadata>;
-
 export interface MetadataProvider {
-  find(address: Address): Promise<ReadonlyMetadata>;
-  findMany(addresses: Address[]): Promise<ReadonlyMetadataMap>;
+  find(address: Address): Promise<Readonly<Metadata> | null>;
+  findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>>;
 }
 
 export interface Metadata {
