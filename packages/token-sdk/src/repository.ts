@@ -1,4 +1,4 @@
-import { Address } from "@orca-so/common-sdk";
+import { Address, AddressUtil } from "@orca-so/common-sdk";
 import { Mintlist, Token } from "./types";
 import { TokenFetcher } from "./fetcher";
 
@@ -17,8 +17,11 @@ export type TokenWithTags = Token & { tags: string[] };
  * local state.
  */
 export class TokenRepository {
-  private readonly mintMap: Map<string, string[]> = new Map();
-  private readonly tagMap: Map<string, string[]> = new Map();
+  // Map from mint to tags
+  private readonly mintMap: Map<string, Set<string>> = new Map();
+  // Map from tag to mints
+  private readonly tagMap: Map<string, Set<string>> = new Map();
+  // Set of mints to exclude from retrieval of tokens via get methods
   private readonly excluded: Set<string> = new Set();
 
   constructor(private readonly fetcher: TokenFetcher) {}
@@ -30,17 +33,7 @@ export class TokenRepository {
    * @returns This instance of the repository
    */
   addMint(mint: Address, tags: string[] = []): TokenRepository {
-    const mintString = mint.toString();
-    const tagSet = new Set(this.mintMap.get(mintString));
-    tags.forEach((tag) => tagSet.add(tag));
-    this.mintMap.set(mintString, Array.from(tagSet));
-
-    tags.forEach((tag) => {
-      const mintSet = new Set(this.tagMap.get(tag));
-      mintSet.add(mintString);
-      this.tagMap.set(tag, Array.from(mintSet));
-    });
-    return this;
+    return this.addMints([mint], tags);
   }
 
   /**
@@ -51,7 +44,22 @@ export class TokenRepository {
    * @returns This instance of the repository
    */
   addMints(mints: Address[], tags: string[] = []): TokenRepository {
-    mints.forEach((mint) => this.addMint(mint, tags));
+    mints.forEach((mint) => {
+      const mintString = mint.toString();
+      if (!this.mintMap.has(mintString)) {
+        this.mintMap.set(mintString, new Set());
+      }
+      const tagSet = this.mintMap.get(mintString)!;
+      tags.forEach((tag) => tagSet.add(tag));
+    });
+
+    tags.forEach((tag) => {
+      if (!this.tagMap.has(tag)) {
+        this.tagMap.set(tag, new Set());
+      }
+      const mintSet = this.tagMap.get(tag)!;
+      AddressUtil.toStrings(mints).forEach((mint) => mintSet.add(mint));
+    });
     return this;
   }
 
@@ -108,7 +116,9 @@ export class TokenRepository {
       return null;
     }
     const token = await this.fetcher.find(mint, refresh);
-    return { ...token, tags: this.mintMap.get(mint.toString()) ?? [] };
+    const tagSet = this.mintMap.get(mint.toString());
+    const tags = tagSet ? Array.from(tagSet) : [];
+    return { ...token, tags };
   }
 
   /**
@@ -120,10 +130,11 @@ export class TokenRepository {
     const tokens = await this.fetcher.findMany(Array.from(mints), refresh);
     return Array.from(tokens.values())
       .filter((token) => !this.excluded.has(token.mint.toString()))
-      .map((token) => ({
-        ...token,
-        tags: this.mintMap.get(token.mint.toString()) ?? [],
-      }));
+      .map((token) => {
+        const tagSet = this.mintMap.get(token.mint.toString());
+        const tags = tagSet ? Array.from(tagSet) : [];
+        return { ...token, tags };
+      });
   }
 
   /**
@@ -134,7 +145,8 @@ export class TokenRepository {
    * returned.
    */
   async getByTag(tag: string, refresh = false): Promise<TokenWithTags[]> {
-    const mints = this.tagMap.get(tag) ?? [];
+    const mintSet = this.tagMap.get(tag);
+    const mints = mintSet ? Array.from(mintSet) : [];
     return this.getMany(mints, refresh);
   }
 }
