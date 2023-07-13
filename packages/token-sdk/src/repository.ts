@@ -93,9 +93,9 @@ export class TokenRepository {
    * Gets all token metadata and tags for all unexcluded mints in the repository.
    * @returns All token metadatas with tags in the repository
    */
-  async getAll(): Promise<TokenWithTags[]> {
+  async getAll(refresh = false): Promise<TokenWithTags[]> {
     const mints = this.mintMap.keys();
-    return this.getMany(Array.from(mints));
+    return this.getMany(Array.from(mints), refresh);
   }
 
   /**
@@ -103,11 +103,11 @@ export class TokenRepository {
    * @param mint Mint to get
    * @returns Token metadata and tags. Null if mint is excluded.
    */
-  async get(mint: Address): Promise<TokenWithTags | null> {
+  async get(mint: Address, refresh = false): Promise<TokenWithTags | null> {
     if (this.excluded.has(mint.toString())) {
       return null;
     }
-    const token = await this.fetcher.find(mint);
+    const token = await this.fetcher.find(mint, refresh);
     return { ...token, tags: this.mintMap.get(mint.toString()) ?? [] };
   }
 
@@ -116,8 +116,8 @@ export class TokenRepository {
    * @param mints Mints to get
    * @returns Token metadata and tags for the given mints. Excluded mints are not returned.
    */
-  async getMany(mints: Address[]): Promise<TokenWithTags[]> {
-    const tokens = await this.fetcher.findMany(Array.from(mints));
+  async getMany(mints: Address[], refresh = false): Promise<TokenWithTags[]> {
+    const tokens = await this.fetcher.findMany(Array.from(mints), refresh);
     return Array.from(tokens.values())
       .filter((token) => !this.excluded.has(token.mint.toString()))
       .map((token) => ({
@@ -133,8 +133,8 @@ export class TokenRepository {
    * @returns Token metadata and tags for all mints with the given tag. Excluded mints are not
    * returned.
    */
-  async getByTag(tag: string): Promise<TokenWithTags[]> {
+  async getByTag(tag: string, refresh = false): Promise<TokenWithTags[]> {
     const mints = this.tagMap.get(tag) ?? [];
-    return this.getMany(mints);
+    return this.getMany(mints, refresh);
   }
 }
