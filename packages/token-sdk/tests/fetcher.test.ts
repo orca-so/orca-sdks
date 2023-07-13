@@ -1,6 +1,6 @@
 import { Address } from "@orca-so/common-sdk";
+import { TokenFetcher } from "../src/fetcher";
 import { FileSystemProvider, Metadata, MetadataProvider } from "../src/metadata";
-import { TokenFetcher } from "../src/token-fetcher";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
 
 jest.setTimeout(100 * 1000 /* ms */);
