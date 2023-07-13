@@ -6,7 +6,7 @@ import { Mintlist } from "../src/types";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
-describe("token-fetcher", () => {
+describe("token-repository", () => {
   const ctx = createTestContext();
   let mint1: string;
   let mint2: string;
