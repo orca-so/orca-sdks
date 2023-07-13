@@ -132,6 +132,28 @@ describe("token-repository", () => {
     expect(coingecko[0].tags[1]).toEqual("coingecko");
   });
 
+  it("get refresh refetches token metadata", async () => {
+    const p1 = new FileSystemProvider(new Map([[mint1, { name: "P1 Token", symbol: "P1" }]]));
+    fetcher = new TokenFetcher(ctx.connection).addProvider(p1);
+
+    const repo = new TokenRepository(fetcher).addMint(mint1);
+    let token = await repo.get(mint1);
+    expect(token).toBeDefined();
+    expect(token?.name).toEqual("P1 Token");
+    expect(token?.symbol).toEqual("P1");
+    expect(token?.image).toBeUndefined();
+
+    const p2 = new FileSystemProvider(
+      new Map([[mint1, { name: "P1 Token", symbol: "P1", image: "https://new_image.com" }]])
+    );
+    fetcher.addProvider(p2);
+    token = await repo.get(mint1, true);
+    expect(token).toBeDefined();
+    expect(token?.name).toEqual("P1 Token");
+    expect(token?.symbol).toEqual("P1");
+    expect(token?.image).toEqual("https://new_image.com");
+  });
+
   it("excludeMints omitted from gets", async () => {
     const mints = [mint1, mint2, mint3];
     const repo = new TokenRepository(fetcher)
