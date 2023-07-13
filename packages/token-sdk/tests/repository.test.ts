@@ -3,6 +3,7 @@ import { TokenFetcher } from "../src/fetcher";
 import { TokenRepository } from "../src/repository";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
 import { Mintlist } from "../src/types";
+import { Keypair } from "@solana/web3.js";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
@@ -96,7 +97,7 @@ describe("token-repository", () => {
     expect(token?.tags).toEqual(["tag1"]);
   });
 
-  it("getMany ok, omits missing mints", async () => {
+  it("getMany ok", async () => {
     const mints = [mint1, mint2, mint3];
     const repo = new TokenRepository(fetcher).addMints(mints, ["tag1"]);
     const tokens = await repo.getMany(mints);
@@ -169,5 +170,15 @@ describe("token-repository", () => {
     tokens = await repo.getAll();
     expect(tokens.length).toEqual(1);
     expect(tokens[0].mint).toEqual(mint3);
+  });
+
+  it("missing mints excluded from gets", async () => {
+    const missingMint = Keypair.generate().publicKey.toString();
+    const mints = [mint1, mint2, mint3];
+    const repo = new TokenRepository(fetcher).addMints(mints, ["tag1"]);
+    const tokens = await repo.getMany([missingMint]);
+    expect(tokens.length).toEqual(0);
+    const token = await repo.get(missingMint);
+    expect(token).toBeNull();
   });
 });

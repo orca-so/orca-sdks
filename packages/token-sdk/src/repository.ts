@@ -107,12 +107,15 @@ export class TokenRepository {
   }
 
   /**
-   * Gets token metadata and tags for a given mint. If the mint is excluded, null is returned.
+   * Gets token metadata and tags for a given mint.
+   * If the mint is excluded, null is returned.
+   * If the mint is not in the repository, null is returned.
    * @param mint Mint to get
    * @returns Token metadata and tags. Null if mint is excluded.
    */
   async get(mint: Address, refresh = false): Promise<TokenWithTags | null> {
-    if (this.excluded.has(mint.toString())) {
+    const mintString = mint.toString();
+    if (this.excluded.has(mintString) || !this.mintMap.has(mintString)) {
       return null;
     }
     const token = await this.fetcher.find(mint, refresh);
@@ -122,31 +125,37 @@ export class TokenRepository {
   }
 
   /**
-   * Gets token metadata and tags for the given mints. If a mint is excluded, it is not returned.
+   * Gets token metadata and tags for the given mints that are in the repository.
+   * If a mint is excluded, it is not returned.
+   * If a mint is not in the repository, it is not returned.
    * @param mints Mints to get
    * @returns Token metadata and tags for the given mints. Excluded mints are not returned.
    */
   async getMany(mints: Address[], refresh = false): Promise<TokenWithTags[]> {
-    const tokens = await this.fetcher.findMany(Array.from(mints), refresh);
-    return Array.from(tokens.values())
-      .filter((token) => !this.excluded.has(token.mint.toString()))
-      .map((token) => {
-        const tagSet = this.mintMap.get(token.mint.toString());
-        const tags = tagSet ? Array.from(tagSet) : [];
-        return { ...token, tags };
-      });
+    const filteredMints = AddressUtil.toStrings(mints).filter(
+      (mint) => this.mintMap.has(mint) && !this.excluded.has(mint)
+    );
+    const tokens = await this.fetcher.findMany(filteredMints, refresh);
+    return Array.from(tokens.values()).map((token) => {
+      const tagSet = this.mintMap.get(token.mint.toString());
+      const tags = tagSet ? Array.from(tagSet) : [];
+      return { ...token, tags };
+    });
   }
 
   /**
-   * Gets all token metadata and tags for all mints with the given tag. If a mint is excluded, it
-   * is not returned.
+   * Gets all token metadata and tags for all mints with the given tag.
+   * If a mint is excluded, it is not returned.
+   * If a mint is not in the repository, it is not returned.
    * @param tag Tag to get
    * @returns Token metadata and tags for all mints with the given tag. Excluded mints are not
    * returned.
    */
   async getByTag(tag: string, refresh = false): Promise<TokenWithTags[]> {
     const mintSet = this.tagMap.get(tag);
-    const mints = mintSet ? Array.from(mintSet) : [];
-    return this.getMany(mints, refresh);
+    if (!mintSet) {
+      return [];
+    }
+    return this.getMany(Array.from(mintSet), refresh);
   }
 }
