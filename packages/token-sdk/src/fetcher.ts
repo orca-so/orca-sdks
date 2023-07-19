@@ -33,6 +33,11 @@ export class TokenFetcher {
     this.providers.push(this.overridesProvider);
   }
 
+  public setCache(cache: Map<string, Token>): TokenFetcher {
+    this._cache = cache;
+    return this;
+  }
+
   public setOverrides(overrides: Overrides): TokenFetcher {
     this.overridesProvider.setCache(OverridesUtil.toMap(overrides));
     return this;
