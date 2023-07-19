@@ -1,6 +1,8 @@
 import { Address, AddressUtil } from "@orca-so/common-sdk";
 import { Mintlist, Token } from "./types";
 import { TokenFetcher } from "./fetcher";
+import { Overrides } from "./metadata";
+import { Connection } from "@solana/web3.js";
 
 /**
  * Token with tags. Tags are strings that can be used to label tokens that do not exist on-chain.
@@ -23,6 +25,10 @@ export class TokenRepository {
   private readonly tagMap: Map<string, Set<string>> = new Map();
   // Set of mints to exclude from retrieval of tokens via get methods
   private readonly excluded: Set<string> = new Set();
+
+  static from(connection: Connection): TokenRepository {
+    return new TokenRepository(new TokenFetcher(connection));
+  }
 
   constructor(private readonly fetcher: TokenFetcher) {}
 
@@ -169,5 +175,16 @@ export class TokenRepository {
     const mintString = mint.toString();
     const tagSet = this.mintMap.get(mintString);
     return tagSet?.has(tag) ?? false;
+  }
+
+  /**
+   * Sets metadata overrides for the repository. Overrides metadata take precedence over all other
+   * metadata sources.
+   * @param overrides Metadata overrides
+   * @returns This instance of the repository
+   */
+  setOverrides(overrides: Overrides): TokenRepository {
+    this.fetcher.setOverrides(overrides);
+    return this;
   }
 }

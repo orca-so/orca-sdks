@@ -2,7 +2,11 @@ import { Address, AddressUtil } from "@orca-so/common-sdk";
 import { Metadata, MetadataProvider } from "./types";
 
 export class FileSystemProvider implements MetadataProvider {
-  constructor(private readonly _cache: ReadonlyMap<string, Metadata | null> = new Map()) {}
+  constructor(private _cache: Map<string, Metadata | null> = new Map()) {}
+
+  setCache(cache: Map<string, Metadata | null>): void {
+    this._cache = cache;
+  }
 
   find(address: Address): Promise<Readonly<Metadata> | null> {
     const mint = AddressUtil.toPubKey(address).toBase58();
