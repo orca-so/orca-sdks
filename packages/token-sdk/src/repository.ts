@@ -158,4 +158,16 @@ export class TokenRepository {
     }
     return this.getMany(Array.from(mintSet), refresh);
   }
+
+  /**
+   * Returns true if the given mint is in the repository and has the given tag.
+   * @param mint Mint to check
+   * @param tag Tag to check
+   * @returns True if the mint is in the repository and has the given tag
+   */
+  hasTag(mint: Address, tag: string): boolean {
+    const mintString = mint.toString();
+    const tagSet = this.mintMap.get(mintString);
+    return tagSet?.has(tag) ?? false;
+  }
 }
