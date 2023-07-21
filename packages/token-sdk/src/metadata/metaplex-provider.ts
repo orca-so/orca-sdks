@@ -16,6 +16,11 @@ const DEFAULT_INTERVAL_MS = 1000;
 interface Opts {
   concurrency?: number;
   intervalMs?: number;
+  /**
+   * Flag that indicates whether to load offchain JSON data used to populate image.
+   * False by default.
+   * https://github.com/metaplex-foundation/js#load
+   */
   loadImage?: boolean;
 }
 

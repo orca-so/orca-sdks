@@ -2,7 +2,6 @@ import { Address, AddressUtil } from "@orca-so/common-sdk";
 import { Mintlist, Token } from "./types";
 import { TokenFetcher } from "./fetcher";
 import { Overrides } from "./metadata";
-import { Connection } from "@solana/web3.js";
 
 /**
  * Token with tags. Tags are strings that can be used to label tokens that do not exist on-chain.
