@@ -1,4 +1,10 @@
-import { isMetadata, Metaplex, Nft, Sft } from "@metaplex-foundation/js";
+import {
+  isMetadata,
+  Metaplex,
+  Nft,
+  Sft,
+  Metadata as MetaplexMetadata,
+} from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
 import { MetadataProvider, Metadata } from "./types";
 import { Address, AddressUtil } from "@orca-so/common-sdk";
@@ -10,16 +16,19 @@ const DEFAULT_INTERVAL_MS = 1000;
 interface Opts {
   concurrency?: number;
   intervalMs?: number;
+  loadImage?: boolean;
 }
 
 export class MetaplexProvider implements MetadataProvider {
   private readonly metaplex: Metaplex;
   private readonly queue: PQueue;
+  private readonly opts: Opts;
 
   constructor(connection: Connection, opts: Opts = {}) {
     const { concurrency = DEFAULT_CONCURRENCY, intervalMs = DEFAULT_INTERVAL_MS } = opts;
     this.metaplex = Metaplex.make(connection);
     this.queue = new PQueue({ concurrency, interval: intervalMs });
+    this.opts = opts;
   }
 
   async find(address: Address): Promise<Readonly<Metadata> | null> {
@@ -31,13 +40,7 @@ export class MetaplexProvider implements MetadataProvider {
     } catch (e) {
       return null;
     }
-
-    // Use the Token Standard field to determine version of the metadata
-    // https://docs.metaplex.com/programs/token-metadata/token-standard#the-token-standard-field
-    if (!metadata.tokenStandard) {
-      return transformMetadataV1_0(metadata);
-    }
-    return transformMetadataV1_1(metadata);
+    return transformMetadata(metadata);
   }
 
   async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
@@ -47,7 +50,7 @@ export class MetaplexProvider implements MetadataProvider {
       results.map((result) => {
         if (!result) {
           return null;
-        } else if (isMetadata(result)) {
+        } else if (this.opts.loadImage && isMetadata(result)) {
           return this.queue.add(async () => this.metaplex.nfts().load({ metadata: result }));
         } else {
           return result;
@@ -57,45 +60,22 @@ export class MetaplexProvider implements MetadataProvider {
     return new Map(
       loaded.map((metadata, index) => {
         const mint = mints[index].toBase58();
-        let result: Metadata | null = null;
-        if (metadata) {
-          if (!metadata.tokenStandard) {
-            result = transformMetadataV1_0(metadata);
-          } else {
-            result = transformMetadataV1_1(metadata);
-          }
-        }
+        const result = metadata ? transformMetadata(metadata) : null;
         return [mint, result];
       })
     );
   }
 }
 
-// Token is v1.0 standard. Many 1.0 tokens do not have off-chain JSON metadata.
-// https://docs.metaplex.com/programs/token-metadata/changelog/v1.0
-function transformMetadataV1_0(token: Sft | Nft): Metadata {
+// https://docs.metaplex.com/programs/token-metadata/token-standard
+function transformMetadata(token: Sft | Nft | MetaplexMetadata): Metadata {
   const metadata: Metadata = {
     symbol: token.symbol,
     name: token.name,
   };
+  // Image is in offchain JSON file. Only populate if JSON file was loaded.
   if (token.jsonLoaded && token.json) {
     metadata.image = token.json.image;
   }
   return metadata;
-}
-
-// Token is v1.1 standard, which means there should be an off-chain JSON metadata file.
-function transformMetadataV1_1(token: Sft | Nft): Metadata {
-  if (!token.jsonLoaded || !token.json) {
-    console.error(
-      `Failed to load v1.1 data for ${token.symbol} - ${token.address.toBase58()} - ${token.uri}`
-    );
-    // Return the on-chain, non v1.1 metadata as a fallback
-    return { symbol: token.symbol, name: token.name };
-  }
-  return {
-    symbol: token.json.symbol,
-    name: token.json.name,
-    image: token.json.image,
-  };
 }

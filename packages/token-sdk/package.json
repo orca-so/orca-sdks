@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@metaplex-foundation/js": "^0.18.3",
+    "@metaplex-foundation/js": "^0.19.4",
     "@orca-so/common-sdk": "^0.3.1",
     "@solana/spl-token": "0.3.8",
     "@solana/web3.js": "^1.75.0",
