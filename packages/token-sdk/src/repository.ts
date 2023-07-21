@@ -26,10 +26,6 @@ export class TokenRepository {
   // Set of mints to exclude from retrieval of tokens via get methods
   private readonly excluded: Set<string> = new Set();
 
-  static from(connection: Connection): TokenRepository {
-    return new TokenRepository(new TokenFetcher(connection));
-  }
-
   constructor(private readonly fetcher: TokenFetcher) {}
 
   /**
