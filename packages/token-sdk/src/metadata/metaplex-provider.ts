@@ -22,7 +22,7 @@ interface Opts {
   intervalMs?: number;
   /**
    * Flag that indicates whether to load offchain JSON data used to populate image.
-   * False by default.
+   * True by default.
    * https://github.com/metaplex-foundation/js#load
    */
   loadImage?: boolean;
@@ -56,11 +56,12 @@ export class MetaplexProvider implements MetadataProvider {
   async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     const mints = AddressUtil.toPubKeys(addresses);
     const results = await this.metaplex.nfts().findAllByMintList({ mints });
+    const loadImage = this.opts.loadImage ?? true;
     const loaded = await Promise.all(
       results.map((result) => {
         if (!result) {
           return null;
-        } else if (this.opts.loadImage && isMetadata(result)) {
+        } else if (loadImage && isMetadata(result)) {
           return this.queue.add(async () => this.metaplex.nfts().load({ metadata: result }));
         } else {
           return result;
