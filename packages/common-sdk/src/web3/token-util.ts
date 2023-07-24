@@ -8,6 +8,7 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { sha256 } from '@noble/hashes/sha256';
 import BN from "bn.js";
 import invariant from "tiny-invariant";
 import { ZERO } from "../math";
@@ -22,6 +23,11 @@ export type ResolvedTokenAddressInstruction = {
 /**
  * @category Util
  */
+export type WrappedSolAccountCreateMethod = "keypair" | "withSeed";
+
+/**
+ * @category Util
+ */
 export class TokenUtil {
   public static isNativeMint(mint: PublicKey) {
     return mint.equals(NATIVE_MINT);
@@ -29,50 +35,28 @@ export class TokenUtil {
 
   /**
    * Create an ix to send a native-mint and unwrap it to the user's wallet.
-   * @param owner
-   * @param amountIn
-   * @param rentExemptLamports
-   * @param payer
-   * @param unwrapDestination
+   * @param owner - PublicKey for the owner of the temporary WSOL account.
+   * @param amountIn - Amount of SOL to wrap.
+   * @param rentExemptLamports - Rent exempt lamports for the temporary WSOL account.
+   * @param payer - PublicKey for the payer that would fund the temporary WSOL accounts. (must sign the txn)
+   * @param unwrapDestination - PublicKey for the receiver that would receive the unwrapped SOL including rent.
+   * @param createAccountMethod - How to create the temporary WSOL account.
    * @returns
    */
-  static createWrappedNativeAccountInstruction(
+  public static createWrappedNativeAccountInstruction(
     owner: PublicKey,
     amountIn: BN,
     rentExemptLamports: number,
     payer?: PublicKey,
-    unwrapDestination?: PublicKey
+    unwrapDestination?: PublicKey,
+    createAccountMethod: WrappedSolAccountCreateMethod = "keypair",
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
-    const tempAccount = new Keypair();
     const unwrapDestinationKey = unwrapDestination ?? payer ?? owner;
 
-    const createAccountInstruction = SystemProgram.createAccount({
-      fromPubkey: payerKey,
-      newAccountPubkey: tempAccount.publicKey,
-      lamports: amountIn.toNumber() + rentExemptLamports,
-      space: AccountLayout.span,
-      programId: TOKEN_PROGRAM_ID,
-    });
-
-    const initAccountInstruction = createInitializeAccountInstruction(
-      tempAccount.publicKey,
-      NATIVE_MINT,
-      owner
-    );
-
-    const closeWSOLAccountInstruction = createCloseAccountInstruction(
-      tempAccount.publicKey,
-      unwrapDestinationKey,
-      owner
-    );
-
-    return {
-      address: tempAccount.publicKey,
-      instructions: [createAccountInstruction, initAccountInstruction],
-      cleanupInstructions: [closeWSOLAccountInstruction],
-      signers: [tempAccount],
-    };
+    return createAccountMethod === "keypair"
+      ? createWrappedNativeAccountInstructionWithKeypair(owner, amountIn, rentExemptLamports, payerKey, unwrapDestinationKey)
+      : createWrappedNativeAccountInstructionWithSeed(owner, amountIn, rentExemptLamports, payerKey, unwrapDestinationKey);
   }
 
   /**
@@ -88,6 +72,7 @@ export class TokenUtil {
    * @param amount - Amount of token to send
    * @param getAccountRentExempt - Fn to fetch the account rent exempt value
    * @param payer - PublicKey for the payer that would fund the possibly new token-accounts. (must sign the txn)
+   * @param allowPDASourceWallet - Allow PDA to be used as the source wallet.
    * @returns
    */
   static async createSendTokensToWalletInstruction(
@@ -98,7 +83,8 @@ export class TokenUtil {
     tokenDecimals: number,
     amount: BN,
     getAccountRentExempt: () => Promise<number>,
-    payer?: PublicKey
+    payer?: PublicKey,
+    allowPDASourceWallet: boolean = false
   ): Promise<Instruction> {
     invariant(!amount.eq(ZERO), "SendToken transaction must send more than 0 tokens.");
 
@@ -116,7 +102,7 @@ export class TokenUtil {
       };
     }
 
-    const sourceTokenAccount = getAssociatedTokenAddressSync(tokenMint, sourceWallet);
+    const sourceTokenAccount = getAssociatedTokenAddressSync(tokenMint, sourceWallet, allowPDASourceWallet);
     const { address: destinationTokenAccount, ...destinationAtaIx } = await resolveOrCreateATA(
       connection,
       destinationWallet,
@@ -141,4 +127,96 @@ export class TokenUtil {
       signers: destinationAtaIx.signers,
     };
   }
+}
+
+function createWrappedNativeAccountInstructionWithKeypair(
+  owner: PublicKey,
+  amountIn: BN,
+  rentExemptLamports: number,
+  payerKey: PublicKey,
+  unwrapDestinationKey: PublicKey,
+): ResolvedTokenAddressInstruction {
+  const tempAccount = new Keypair();
+
+  const createAccountInstruction = SystemProgram.createAccount({
+    fromPubkey: payerKey,
+    newAccountPubkey: tempAccount.publicKey,
+    lamports: amountIn.toNumber() + rentExemptLamports,
+    space: AccountLayout.span,
+    programId: TOKEN_PROGRAM_ID,
+  });
+
+  const initAccountInstruction = createInitializeAccountInstruction(
+    tempAccount.publicKey,
+    NATIVE_MINT,
+    owner
+  );
+
+  const closeWSOLAccountInstruction = createCloseAccountInstruction(
+    tempAccount.publicKey,
+    unwrapDestinationKey,
+    owner
+  );
+
+  return {
+    address: tempAccount.publicKey,
+    instructions: [createAccountInstruction, initAccountInstruction],
+    cleanupInstructions: [closeWSOLAccountInstruction],
+    signers: [tempAccount],
+  };
+}
+
+function createWrappedNativeAccountInstructionWithSeed(
+  owner: PublicKey,
+  amountIn: BN,
+  rentExemptLamports: number,
+  payerKey: PublicKey,
+  unwrapDestinationKey: PublicKey,
+): ResolvedTokenAddressInstruction {
+  // seed is always shorter than a signature.
+  // So createWrappedNativeAccountInstructionWithSeed always generates small size instructions
+  // than createWrappedNativeAccountInstructionWithKeypair.
+  const seed = Keypair.generate().publicKey.toBase58().slice(0, 32); // 32 chars
+
+  const tempAccount = (() => {
+    // same to PublicKey.createWithSeed, but this one is synchronous
+    const fromPublicKey = owner;
+    const programId = TOKEN_PROGRAM_ID;
+    const buffer = Buffer.concat([
+      fromPublicKey.toBuffer(),
+      Buffer.from(seed),
+      programId.toBuffer(),
+    ]);
+    const publicKeyBytes = sha256(buffer);
+    return new PublicKey(publicKeyBytes);
+  })();
+
+  const createAccountInstruction = SystemProgram.createAccountWithSeed({
+    fromPubkey: payerKey,
+    basePubkey: owner,
+    seed,
+    newAccountPubkey: tempAccount,
+    lamports: amountIn.toNumber() + rentExemptLamports,
+    space: AccountLayout.span,
+    programId: TOKEN_PROGRAM_ID,
+  });
+
+  const initAccountInstruction = createInitializeAccountInstruction(
+    tempAccount,
+    NATIVE_MINT,
+    owner
+  );
+
+  const closeWSOLAccountInstruction = createCloseAccountInstruction(
+    tempAccount,
+    unwrapDestinationKey,
+    owner
+  );
+
+  return {
+    address: tempAccount,
+    instructions: [createAccountInstruction, initAccountInstruction],
+    cleanupInstructions: [closeWSOLAccountInstruction],
+    signers: [],
+  };
 }

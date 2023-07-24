@@ -33,7 +33,8 @@ describe("simple-account-fetcher", () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    // jest.resetAllMocks doesn't work (I guess that jest.spyOn rewrite prototype of Connection)
+    jest.restoreAllMocks();
   });
 
   describe("getAccount", () => {
