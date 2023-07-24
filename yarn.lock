@@ -1563,6 +1563,16 @@
     decimal.js "^10.3.1"
     tiny-invariant "^1.2.0"
 
+"@orca-so/common-sdk@^0.3.0", "@orca-so/common-sdk@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@orca-so/common-sdk/-/common-sdk-0.3.1.tgz#939232636b8888237981fad328ddb07a81decfa1"
+  integrity sha512-hk4wPdEBlugfJ2vBnap0P8bH/h/OX109s+NMPZT3CRmQX2IRaal/KBEHT/Gi3OuCG0JSPDvtiFKtXzHnScCt6A==
+  dependencies:
+    "@solana/spl-token" "^0.3.8"
+    "@solana/web3.js" "^1.75.0"
+    decimal.js "^10.3.1"
+    tiny-invariant "^1.2.0"
+
 "@orca-so/token-sdk@^0.1.5":
   version "0.1.5"
   resolved "https://registry.yarnpkg.com/@orca-so/token-sdk/-/token-sdk-0.1.5.tgz#a27c99e4ebd3dfc3fe3dbb8243b12911a717dfb2"

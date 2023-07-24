@@ -8,7 +8,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { ZERO } from "../math";
 import { ParsableTokenAccountInfo, getMultipleParsedAccounts } from "./network";
-import { ResolvedTokenAddressInstruction, TokenUtil } from "./token-util";
+import { ResolvedTokenAddressInstruction, TokenUtil, WrappedSolAccountCreateMethod } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
 
 /**
@@ -22,6 +22,8 @@ import { EMPTY_INSTRUCTION } from "./transactions/types";
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
  * @param payer Payer that would pay the rent for the creation of the ATAs
  * @param modeIdempotent Optional. Use CreateIdempotent instruction instead of Create instruction
+ * @param allowPDAOwnerAddress Optional. Allow PDA to be used as the ATA owner address
+ * @param wrappedSolAccountCreateMethod - Optional. How to create the temporary WSOL account.
  * @returns
  */
 export async function resolveOrCreateATA(
@@ -31,7 +33,9 @@ export async function resolveOrCreateATA(
   getAccountRentExempt: () => Promise<number>,
   wrappedSolAmountIn = ZERO,
   payer = ownerAddress,
-  modeIdempotent: boolean = false
+  modeIdempotent: boolean = false,
+  allowPDAOwnerAddress: boolean = false,
+  wrappedSolAccountCreateMethod: WrappedSolAccountCreateMethod = "keypair",
 ): Promise<ResolvedTokenAddressInstruction> {
   const instructions = await resolveOrCreateATAs(
     connection,
@@ -39,7 +43,9 @@ export async function resolveOrCreateATA(
     [{ tokenMint, wrappedSolAmountIn }],
     getAccountRentExempt,
     payer,
-    modeIdempotent
+    modeIdempotent,
+    allowPDAOwnerAddress,
+    wrappedSolAccountCreateMethod,
   );
   return instructions[0]!;
 }
@@ -60,6 +66,8 @@ type ResolvedTokenAddressRequest = {
  * @param wrappedSolAmountIn Optional. Only use for input/source token that could be SOL
  * @param payer Payer that would pay the rent for the creation of the ATAs
  * @param modeIdempotent Optional. Use CreateIdempotent instruction instead of Create instruction
+ * @param allowPDAOwnerAddress Optional. Allow PDA to be used as the ATA owner address
+ * @param wrappedSolAccountCreateMethod - Optional. How to create the temporary WSOL account.
  * @returns
  */
 export async function resolveOrCreateATAs(
@@ -68,7 +76,9 @@ export async function resolveOrCreateATAs(
   requests: ResolvedTokenAddressRequest[],
   getAccountRentExempt: () => Promise<number>,
   payer = ownerAddress,
-  modeIdempotent: boolean = false
+  modeIdempotent: boolean = false,
+  allowPDAOwnerAddress: boolean = false,
+  wrappedSolAccountCreateMethod: WrappedSolAccountCreateMethod = "keypair",
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
@@ -80,7 +90,7 @@ export async function resolveOrCreateATAs(
   let instructionMap: { [tokenMint: string]: ResolvedTokenAddressInstruction } = {};
   if (nonNativeMints.length > 0) {
     const nonNativeAddresses = nonNativeMints.map(({ tokenMint }) =>
-      getAssociatedTokenAddressSync(tokenMint, ownerAddress)
+      getAssociatedTokenAddressSync(tokenMint, ownerAddress, allowPDAOwnerAddress)
     );
 
     const tokenAccounts = await getMultipleParsedAccounts(
@@ -132,7 +142,10 @@ export async function resolveOrCreateATAs(
     instructionMap[NATIVE_MINT.toBase58()] = TokenUtil.createWrappedNativeAccountInstruction(
       ownerAddress,
       wrappedSolAmountIn,
-      accountRentExempt
+      accountRentExempt,
+      undefined, // use default
+      undefined, // use default
+      wrappedSolAccountCreateMethod
     );
   }
 

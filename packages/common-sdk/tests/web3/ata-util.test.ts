@@ -278,4 +278,108 @@ describe("ata-util", () => {
     );
     await expect(postOwnerChangedPromise).rejects.toThrow(/ATA with change of ownership detected/);
   });
+
+  it("resolveOrCreateATA, allowPDAOwnerAddress = false", async () => {
+    const mint = await createNewMint(ctx);
+
+    const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey); // ATA is one of PDAs
+    const allowPDAOwnerAddress = false;
+
+    try {
+      await resolveOrCreateATA(
+        connection,
+        pda,
+        mint,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        ZERO,
+        wallet.publicKey,
+        false,
+        allowPDAOwnerAddress
+      );
+
+      fail("should be failed");
+    } catch (e: any) {
+      expect(e.name).toMatch("TokenOwnerOffCurveError");
+    }  
+  });
+
+  it("resolveOrCreateATA, allowPDAOwnerAddress = true", async () => {
+    const mint = await createNewMint(ctx);
+
+    const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey); // ATA is one of PDAs
+    const allowPDAOwnerAddress = true;
+
+    try {
+      await resolveOrCreateATA(
+        connection,
+        pda,
+        mint,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        ZERO,
+        wallet.publicKey,
+        false,
+        allowPDAOwnerAddress
+      );
+    } catch (e: any) {
+      fail("should be failed");
+    }  
+  });
+
+  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = keypair", async () => {
+    const { connection, wallet } = ctx;
+
+    const wrappedSolAccountCreateMethod = "keypair";
+
+    const resolved = await resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      NATIVE_MINT,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+      new BN(LAMPORTS_PER_SOL),
+      wallet.publicKey,
+      false,
+      false,
+      wrappedSolAccountCreateMethod,
+    );
+
+    expect(resolved.instructions.length).toEqual(2);
+    expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
+    expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.cleanupInstructions.length).toEqual(1);
+    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.signers.length).toEqual(1);
+
+    const builder = new TransactionBuilder(connection, wallet);
+    builder.addInstruction(resolved);
+    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+  });
+
+  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = withSeed", async () => {
+    const { connection, wallet } = ctx;
+
+    const wrappedSolAccountCreateMethod = "withSeed";
+
+    const resolved = await resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      NATIVE_MINT,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+      new BN(LAMPORTS_PER_SOL),
+      wallet.publicKey,
+      false,
+      false,
+      wrappedSolAccountCreateMethod,
+    );
+
+    expect(resolved.instructions.length).toEqual(2);
+    expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
+    expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.cleanupInstructions.length).toEqual(1);
+    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.signers.length).toEqual(0);
+
+    const builder = new TransactionBuilder(connection, wallet);
+    builder.addInstruction(resolved);
+    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+  });
 });
