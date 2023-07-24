@@ -9,37 +9,22 @@ import {
 } from "@orca-so/common-sdk";
 import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
-import {
-  FileSystemProvider,
-  Metadata,
-  MetadataProvider,
-  MetadataUtil,
-  Overrides,
-  OverridesUtil,
-} from "./metadata";
+import { Metadata, MetadataProvider, MetadataUtil } from "./metadata";
 import pTimeout from "p-timeout";
 
 const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
-  private readonly overridesProvider: FileSystemProvider = new FileSystemProvider();
   private _cache: Map<string, Token> = new Map();
 
   constructor(
     private readonly connection: Connection,
     private readonly timeoutMs: number = TIMEOUT_MS
-  ) {
-    this.providers.push(this.overridesProvider);
-  }
+  ) {}
 
   public setCache(cache: Map<string, Token>): TokenFetcher {
     this._cache = cache;
-    return this;
-  }
-
-  public setOverrides(overrides: Overrides): TokenFetcher {
-    this.overridesProvider.setCache(OverridesUtil.toMap(overrides));
     return this;
   }
 

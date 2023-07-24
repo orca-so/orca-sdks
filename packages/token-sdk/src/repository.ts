@@ -24,6 +24,7 @@ export class TokenRepository {
   private readonly tagMap: Map<string, Set<string>> = new Map();
   // Set of mints to exclude from retrieval of tokens via get methods
   private readonly excluded: Set<string> = new Set();
+  private overrides: Overrides = {};
 
   constructor(private readonly fetcher: TokenFetcher) {}
 
@@ -120,9 +121,10 @@ export class TokenRepository {
       return null;
     }
     const token = await this.fetcher.find(mint, refresh);
-    const tagSet = this.mintMap.get(mint.toString());
+    const overrides = this.overrides[mintString];
+    const tagSet = this.mintMap.get(mintString);
     const tags = tagSet ? Array.from(tagSet) : [];
-    return { ...token, tags };
+    return { ...token, ...overrides, tags };
   }
 
   /**
@@ -138,9 +140,11 @@ export class TokenRepository {
     );
     const tokens = await this.fetcher.findMany(filteredMints, refresh);
     return Array.from(tokens.values()).map((token) => {
-      const tagSet = this.mintMap.get(token.mint.toString());
+      const mintString = token.mint.toString();
+      const tagSet = this.mintMap.get(mintString);
       const tags = tagSet ? Array.from(tagSet) : [];
-      return { ...token, tags };
+      const overrides = this.overrides[mintString];
+      return { ...token, ...overrides, tags };
     });
   }
 
@@ -179,7 +183,7 @@ export class TokenRepository {
    * @returns This instance of the repository
    */
   setOverrides(overrides: Overrides): TokenRepository {
-    this.fetcher.setOverrides(overrides);
+    this.overrides = overrides;
     return this;
   }
 }

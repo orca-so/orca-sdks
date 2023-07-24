@@ -181,4 +181,17 @@ describe("token-repository", () => {
     const token = await repo.get(missingMint);
     expect(token).toBeNull();
   });
+
+  it("overrides ok", async () => {
+    const overrides = {
+      [mint1]: { name: "Override P1" },
+    };
+    const repo = new TokenRepository(fetcher).addMint(mint1, ["tag1"]).setOverrides(overrides);
+    const token = await repo.get(mint1);
+    expect(token).toBeDefined();
+    expect(token?.mint).toEqual(mint1);
+    expect(token?.name).toEqual("Override P1");
+    expect(token?.symbol).toEqual("P1");
+    expect(token?.tags).toEqual(["tag1"]);
+  });
 });
