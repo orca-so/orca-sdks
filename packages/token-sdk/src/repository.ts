@@ -26,8 +26,6 @@ export class TokenRepository {
   private readonly excluded: Set<string> = new Set();
   private overrides: Overrides = {};
 
-  constructor(private readonly fetcher: TokenFetcher) {}
-
   /**
    * Adds a mint to the repository. If the mint already exists, the tags are merged.
    * @param mint Mint to add
@@ -100,27 +98,37 @@ export class TokenRepository {
   }
 
   /**
-   * Gets all token metadata and tags for all unexcluded mints in the repository.
+   * Fetches all token metadata and tags for all unexcluded mints in the repository.
+   *
+   * @param fetcher TokenFetcher to use
+   * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns All token metadatas with tags in the repository
    */
-  async getAll(refresh = false): Promise<TokenWithTags[]> {
+  async fetchAll(fetcher: TokenFetcher, refresh = false): Promise<TokenWithTags[]> {
     const mints = this.mintMap.keys();
-    return this.getMany(Array.from(mints), refresh);
+    return this.fetchMany(fetcher, Array.from(mints), refresh);
   }
 
   /**
-   * Gets token metadata and tags for a given mint.
+   * Fetches token metadata and tags for a given mint.
    * If the mint is excluded, null is returned.
    * If the mint is not in the repository, null is returned.
+   *
+   * @param fetcher TokenFetcher to use
    * @param mint Mint to get
+   * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns Token metadata and tags. Null if mint is excluded.
    */
-  async get(mint: Address, refresh = false): Promise<TokenWithTags | null> {
+  async fetch(
+    fetcher: TokenFetcher,
+    mint: Address,
+    refresh = false
+  ): Promise<TokenWithTags | null> {
     const mintString = mint.toString();
     if (this.excluded.has(mintString) || !this.mintMap.has(mintString)) {
       return null;
     }
-    const token = await this.fetcher.find(mint, refresh);
+    const token = await fetcher.find(mint, refresh);
     const overrides = this.overrides[mintString];
     const tagSet = this.mintMap.get(mintString);
     const tags = tagSet ? Array.from(tagSet) : [];
@@ -128,17 +136,24 @@ export class TokenRepository {
   }
 
   /**
-   * Gets token metadata and tags for the given mints that are in the repository.
+   * Fetches token metadata and tags for the given mints that are in the repository.
    * If a mint is excluded, it is not returned.
    * If a mint is not in the repository, it is not returned.
+   *
+   * @param fetcher TokenFetcher to use
    * @param mints Mints to get
+   * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns Token metadata and tags for the given mints. Excluded mints are not returned.
    */
-  async getMany(mints: Address[], refresh = false): Promise<TokenWithTags[]> {
+  async fetchMany(
+    fetcher: TokenFetcher,
+    mints: Address[],
+    refresh = false
+  ): Promise<TokenWithTags[]> {
     const filteredMints = AddressUtil.toStrings(mints).filter(
       (mint) => this.mintMap.has(mint) && !this.excluded.has(mint)
     );
-    const tokens = await this.fetcher.findMany(filteredMints, refresh);
+    const tokens = await fetcher.findMany(filteredMints, refresh);
     return Array.from(tokens.values()).map((token) => {
       const mintString = token.mint.toString();
       const tagSet = this.mintMap.get(mintString);
@@ -149,29 +164,34 @@ export class TokenRepository {
   }
 
   /**
-   * Gets all token metadata and tags for all mints with the given tag.
+   * Fetches all token metadata and tags for all mints with the given tag.
    * If a mint is excluded, it is not returned.
    * If a mint is not in the repository, it is not returned.
+   * @param fetcher TokenFetcher to use
    * @param tag Tag to get
+   * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns Token metadata and tags for all mints with the given tag. Excluded mints are not
    * returned.
    */
-  async getByTag(tag: string, refresh = false): Promise<TokenWithTags[]> {
+  async fetchByTag(fetcher: TokenFetcher, tag: string, refresh = false): Promise<TokenWithTags[]> {
     const mintSet = this.tagMap.get(tag);
     if (!mintSet) {
       return [];
     }
-    return this.getMany(Array.from(mintSet), refresh);
+    return this.fetchMany(fetcher, Array.from(mintSet), refresh);
   }
 
   /**
-   * Returns true if the given mint is in the repository and has the given tag.
+   * Returns true if the given mint is in the repository and, if tag is provided, has the given tag.
    * @param mint Mint to check
    * @param tag Tag to check
    * @returns True if the mint is in the repository and has the given tag
    */
-  hasTag(mint: Address, tag: string): boolean {
+  has(mint: Address, tag?: string): boolean {
     const mintString = mint.toString();
+    if (tag === undefined) {
+      return this.mintMap.has(mintString);
+    }
     const tagSet = this.mintMap.get(mintString);
     return tagSet?.has(tag) ?? false;
   }
