@@ -4,10 +4,14 @@ import {
   Nft,
   Sft,
   Metadata as MetaplexMetadata,
+  toMetaplexFile,
+  Amount,
+  MetaplexFile,
 } from "@metaplex-foundation/js";
 import { Connection } from "@solana/web3.js";
 import { MetadataProvider, Metadata } from "./types";
 import { Address, AddressUtil } from "@orca-so/common-sdk";
+import fetch from "isomorphic-unfetch";
 import PQueue from "p-queue";
 
 const DEFAULT_CONCURRENCY = 5;
@@ -31,7 +35,8 @@ export class MetaplexProvider implements MetadataProvider {
 
   constructor(connection: Connection, opts: Opts = {}) {
     const { concurrency = DEFAULT_CONCURRENCY, intervalMs = DEFAULT_INTERVAL_MS } = opts;
-    this.metaplex = Metaplex.make(connection);
+    this.metaplex = createMetaplex(connection);
+
     this.queue = new PQueue({ concurrency, interval: intervalMs });
     this.opts = opts;
   }
@@ -84,3 +89,32 @@ function transformMetadata(token: Sft | Nft | MetaplexMetadata): Metadata {
   }
   return metadata;
 }
+
+// HACK: to avoid the following error
+// TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation
+//
+// https://github.com/metaplex-foundation/js/issues/459 (closed but not fixed)
+//
+// Without this hack, the download of the Json file containing the Metadata will fail
+// and "image" metadata will not be retrieved. However, no error will occur.
+//
+// reference: https://github.com/metaplex-foundation/js/blob/4c2c4eafc2158ab6970073f3d49181228ed54260/packages/js/src/plugins/storageModule/StorageClient.ts#L72-L75
+function createMetaplex(connection: Connection): Metaplex {
+  const metaplex = Metaplex.make(connection);
+  metaplex.storage().setDriver(storageDriver);
+  return metaplex;
+}
+
+const storageDriver = {
+  download: async (uri: string, options: any) => {
+    const response = await fetch(uri, options);
+    const buffer = await response.arrayBuffer();
+    return toMetaplexFile(buffer, uri);
+  },
+  getUploadPrice: function (bytes: number): Promise<Amount> {
+    throw new Error("Function not implemented.");
+  },
+  upload: function (file: MetaplexFile): Promise<string> {
+    throw new Error("Function not implemented.");
+  },
+};
