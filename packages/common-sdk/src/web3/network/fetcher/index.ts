@@ -48,4 +48,16 @@ export interface AccountFetcher<T, AccountFetchOptions> {
     parser: ParsableEntity<U>,
     opts?: AccountFetchOptions
   ) => Promise<ReadonlyArray<U | null>>;
+
+  /**
+   * Populate the cache with the given accounts.
+   * @param accounts A list of accounts addresses to fetched accounts to populate the cache with
+   * @param parser The parser that was used to parse theses accounts
+   * @param now The timestamp to use for the cache entries
+   */
+  populateAccounts: <U extends T>(
+    accounts: ReadonlyMap<string, U | null>,
+    parser: ParsableEntity<U>,
+    now: number
+  ) => void;
 }

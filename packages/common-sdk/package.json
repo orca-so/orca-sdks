@@ -32,7 +32,7 @@
     "clean": "rimraf dist",
     "watch": "tsc -w -p src",
     "prepublishOnly": "yarn build",
-    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
+    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' 'tests/**/*.ts' --write",
     "test": "jest --detectOpenHandles",
     "docs": "npx typedoc --excludePrivate --categorizeByGroup false --tsconfig src/tsconfig.json"
   },
