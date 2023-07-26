@@ -29,7 +29,6 @@ export class CoinGeckoProvider implements MetadataProvider {
       const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58());
       return convertToTokenMetadata(contract);
     } catch (e) {
-      console.error(`Error fetching ${mintPubKey.toBase58()} coingecko metadata - ${e}`);
       return null;
     }
   }

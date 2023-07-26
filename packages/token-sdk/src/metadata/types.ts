@@ -10,3 +10,7 @@ export interface Metadata {
   name?: string;
   image?: string;
 }
+
+export type Overrides = {
+  [mint: string]: Metadata;
+};
