@@ -113,7 +113,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     now: number
   ): void {
     Array.from(accounts.entries()).forEach(([key, value]) => {
-      this.cache.set(AddressUtil.toString(key), { parser, value, fetchedAt: now });
+      this.cache.set(key, { parser, value, fetchedAt: now });
     });
   }
 
