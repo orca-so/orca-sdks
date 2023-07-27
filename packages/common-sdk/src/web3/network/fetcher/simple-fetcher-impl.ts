@@ -74,7 +74,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     now: number = Date.now()
   ): Promise<ReadonlyMap<string, U | null>> {
     const addressStrs = AddressUtil.toStrings(addresses);
-    await this.populateCache(addressStrs, parser, opts, now);
+    await this.fetchAndPopulateCache(addressStrs, parser, opts, now);
 
     // Build a map of the results, insert by the order of the addresses parameter
     const result = new Map<string, U | null>();
@@ -94,7 +94,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     now: number = Date.now()
   ): Promise<ReadonlyArray<U | null>> {
     const addressStrs = AddressUtil.toStrings(addresses);
-    await this.populateCache(addressStrs, parser, opts, now);
+    await this.fetchAndPopulateCache(addressStrs, parser, opts, now);
 
     // Rebuild an array containing the results, insert by the order of the addresses parameter
     const result = new Array<U | null>();
@@ -105,6 +105,16 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     });
 
     return result;
+  }
+
+  populateAccounts<U extends T>(
+    accounts: ReadonlyMap<string, U | null>,
+    parser: ParsableEntity<U>,
+    now: number
+  ): void {
+    Array.from(accounts.entries()).forEach(([key, value]) => {
+      this.cache.set(key, { parser, value, fetchedAt: now });
+    });
   }
 
   async refreshAll(now: number = Date.now()) {
@@ -118,7 +128,8 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
       this.cache.set(key, { parser, value, fetchedAt: now });
     }
   }
-  private async populateCache<U extends T>(
+
+  private async fetchAndPopulateCache<U extends T>(
     addresses: Address[],
     parser: ParsableEntity<U>,
     opts?: SimpleAccountFetchOptions | undefined,
