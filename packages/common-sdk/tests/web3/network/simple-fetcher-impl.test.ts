@@ -29,7 +29,7 @@ describe("simple-account-fetcher", () => {
 
   beforeEach(() => {
     ctx = createTestContext();
-    jest.spyOn(console, "error").mockImplementation(() => { });
+    jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -63,7 +63,12 @@ describe("simple-account-fetcher", () => {
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
       await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now);
-      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, undefined, now + retention);
+      const cached = await fetcher.getAccount(
+        mintKey,
+        ParsableMintInfo,
+        undefined,
+        now + retention
+      );
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -102,7 +107,12 @@ describe("simple-account-fetcher", () => {
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
       await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
-      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl);
+      const cached = await fetcher.getAccount(
+        mintKey,
+        ParsableMintInfo,
+        { maxAge: ttl },
+        now + ttl
+      );
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeDefined();
@@ -119,7 +129,12 @@ describe("simple-account-fetcher", () => {
       const ttl = 50;
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
       await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now);
-      const cached = await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: ttl }, now + ttl + 1);
+      const cached = await fetcher.getAccount(
+        mintKey,
+        ParsableMintInfo,
+        { maxAge: ttl },
+        now + ttl + 1
+      );
 
       expect(spy).toBeCalledTimes(2);
       expect(cached).toBeDefined();
@@ -131,7 +146,7 @@ describe("simple-account-fetcher", () => {
       const expected = await getMint(ctx.connection, mintKey);
       const now = 32523523523;
 
-      const fetcher = new SimpleAccountFetcher(ctx.connection, new Map);
+      const fetcher = new SimpleAccountFetcher(ctx.connection, new Map());
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
       await fetcher.getAccount(mintKey, ParsableMintInfo, { maxAge: 0 }, now);
@@ -149,7 +164,6 @@ describe("simple-account-fetcher", () => {
       const retentionPolicy = new Map<ParsableEntity<BasicSupportedTypes>, number>([
         [ParsableMintInfo, 0],
       ]);
-
 
       const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
 
@@ -192,7 +206,12 @@ describe("simple-account-fetcher", () => {
 
       const spy = jest.spyOn(ctx.connection, "getAccountInfo");
       await fetcher.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now);
-      const cached = await fetcher.getAccount(mintKey, ParsableTokenAccountInfo, undefined, now + 5);
+      const cached = await fetcher.getAccount(
+        mintKey,
+        ParsableTokenAccountInfo,
+        undefined,
+        now + 5
+      );
 
       expect(spy).toBeCalledTimes(1);
       expect(cached).toBeNull();
@@ -529,6 +548,79 @@ describe("simple-account-fetcher", () => {
       expect(spy).toBeCalledTimes(1);
       fetcher.cache.forEach((value, _) => {
         expect(value.fetchedAt).toEqual(renewNow);
+      });
+    });
+  });
+
+  describe.only("populateAccounts", () => {
+    let expectedMintInfos: Mint[] = [];
+
+    beforeAll(async () => {
+      for (const mint of testMints) {
+        expectedMintInfos.push(await getMint(ctx.connection, mint));
+      }
+    });
+
+    it("populateAccounts updates all keys from empty state", async () => {
+      const mintKeys = testMints;
+      const now = 32523523523;
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
+      const other = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
+
+      const testSet = [mintKeys[0], mintKeys[1], mintKeys[2]];
+      const otherFetched = await other.getAccounts(testSet, ParsableMintInfo, undefined, now);
+
+      // Populate the fetcher with prefetched accounts and fetch from the fetcher to see if the cached values are set
+      fetcher.populateAccounts(otherFetched, ParsableMintInfo, now);
+      const results = await fetcher.getAccountsAsArray(
+        testSet,
+        ParsableMintInfo,
+        {
+          maxAge: Number.POSITIVE_INFINITY,
+        },
+        now + 5
+      );
+
+      results.forEach((value, index) => {
+        expectMintEquals(value!, expectedMintInfos[index]);
+      });
+      fetcher.cache.forEach((value, _) => {
+        expect(value.fetchedAt).toEqual(now);
+      });
+    });
+
+    it("populateAccounts updates all keys from non-empty state", async () => {
+      const mintKeys = testMints;
+      const now = 32523523523;
+      const fetcher = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
+      const other = new SimpleAccountFetcher(ctx.connection, retentionPolicy);
+
+      await fetcher.getAccount(mintKeys[0], ParsableMintInfo, undefined, now - 5);
+      const testSet = [mintKeys[0], mintKeys[1], mintKeys[2]];
+      const otherFetched = await other.getAccounts(testSet, ParsableMintInfo, undefined, now);
+
+      expect(fetcher.cache.size).toEqual(1);
+      fetcher.cache.forEach((value, _) => {
+        expect(value.fetchedAt).toEqual(now - 5);
+      });
+
+      // Populate the fetcher with prefetched accounts and fetch from the fetcher to see if the cached values are set
+      fetcher.populateAccounts(otherFetched, ParsableMintInfo, now);
+      const results = await fetcher.getAccountsAsArray(
+        testSet,
+        ParsableMintInfo,
+        {
+          maxAge: Number.POSITIVE_INFINITY,
+        },
+        now + 5
+      );
+
+      results.forEach((value, index) => {
+        expectMintEquals(value!, expectedMintInfos[index]);
+      });
+
+      fetcher.cache.forEach((value, _) => {
+        expect(value.fetchedAt).toEqual(now);
       });
     });
   });
