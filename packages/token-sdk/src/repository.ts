@@ -19,7 +19,8 @@ type MintEntry = {
 };
 
 /**
- * Manages a local database of tokens mints and provides a way to fetch metadata for them.
+ * Manages a local database of tokens mints and provides a way to attach additional metadata for
+ * tokens by augmenting the results from a TokenFetcher.
  *
  * Tags - Enables adding tags to mints that can be used for labeling and filtering. Tags can be set
  * for mints without adding the mints to the repository.
