@@ -16,12 +16,14 @@ const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
+  private readonly connection: Connection;
+  private readonly timeoutMs: number;
   private _cache: Map<string, Token> = new Map();
 
-  constructor(
-    private readonly connection: Connection,
-    private readonly timeoutMs: number = TIMEOUT_MS
-  ) {}
+  constructor(connection: Connection, timeoutMs: number = TIMEOUT_MS) {
+    this.connection = connection;
+    this.timeoutMs = timeoutMs;
+  }
 
   public setCache(cache: Map<string, Token>): TokenFetcher {
     this._cache = cache;
