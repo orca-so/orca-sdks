@@ -27,7 +27,7 @@ type MintEntry = {
  *
  * Overrides - Enables overriding metadata for mints. Overrides are applied to fetched tokens.
  *
- * Fetching- Provides methods for fetching token metadata that also includes tags and a flag that
+ * Fetching - Provides methods for fetching token metadata that also includes tags and a flag that
  * indicates whether the token was added to this repository.
  */
 export class TokenRepository {
