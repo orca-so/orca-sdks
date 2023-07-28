@@ -4,97 +4,106 @@ import { TokenFetcher } from "./fetcher";
 import { Overrides } from "./metadata";
 
 /**
- * Token with tags. Tags are strings that can be used to label tokens that do not exist on-chain.
+ * Result of fetching a token from the repository.
  */
-export type TokenWithTags = Token & { tags: string[] };
+export type TokenResult = Token & {
+  // Tags associated with the mint in the repository
+  tags: string[];
+  // Flag indicating if the mint was added to the repository
+  exists: boolean;
+};
+
+type MintEntry = {
+  exists: boolean;
+  tags: Set<string>;
+};
 
 /**
- * Repository for managing a local instance of token mints and fetching token metadata.
+ * Manages a local database of tokens mints and provides a way to fetch metadata for them.
  *
- * Mints can also be tagged with a string. This is useful when groups of mints need to be handled
- * together. For example, a UI may want to mark all mints labeled with a "whitelisted" tag.
+ * Tags - Enables adding tags to mints that can be used for labeling and filtering. Tags can be set
+ * for mints without adding the mints to the repository.
  *
- * All mints managed by an instance of this class can be retrieved to represent all tokens in the
- * local state.
+ * Overrides - Enables overriding metadata for mints. Overrides are applied to fetched tokens.
+ *
+ * Fetching- Provides methods for fetching token metadata that also includes tags and a flag that
+ * indicates whether the token was added to this repository.
  */
 export class TokenRepository {
-  // Map from mint to tags
-  private readonly mintMap: Map<string, Set<string>> = new Map();
+  // Map from mint to mint tags and existence
+  private readonly mintMap: Map<string, MintEntry> = new Map();
   // Map from tag to mints
   private readonly tagMap: Map<string, Set<string>> = new Map();
-  // Set of mints to exclude from retrieval of tokens via get methods
-  private readonly excluded: Set<string> = new Set();
+  // Map of metadata overrides applied to fetched TokenResults
   private overrides: Overrides = {};
 
+  constructor() {
+    this.toTokenResult = this.toTokenResult.bind(this);
+  }
+
   /**
-   * Adds a mint to the repository. If the mint already exists, the tags are merged.
+   * Adds a mint to the repository with the given tags. If the mint exists, tags are merged.
    * @param mint Mint to add
    * @param tags Tags to add to the mint
    * @returns This instance of the repository
    */
   addMint(mint: Address, tags: string[] = []): TokenRepository {
-    return this.addMints([mint], tags);
+    return this.setMints([mint], tags, true);
   }
 
   /**
-   * Adds multiple mints to the repository. If a mint already exists, the tags are merged. Tags are
-   * added to all mints.
+   * Adds multiple mints to the repository with the given tags. If a mint exists, tags are merged.
+   * Tags are added to all mints.
    * @param mints Mints to add
    * @param tags Tags to add to the mints
    * @returns This instance of the repository
    */
   addMints(mints: Address[], tags: string[] = []): TokenRepository {
-    mints.forEach((mint) => {
-      const mintString = mint.toString();
-      if (!this.mintMap.has(mintString)) {
-        this.mintMap.set(mintString, new Set());
-      }
-      const tagSet = this.mintMap.get(mintString)!;
-      tags.forEach((tag) => tagSet.add(tag));
-    });
-
-    tags.forEach((tag) => {
-      if (!this.tagMap.has(tag)) {
-        this.tagMap.set(tag, new Set());
-      }
-      const mintSet = this.tagMap.get(tag)!;
-      AddressUtil.toStrings(mints).forEach((mint) => mintSet.add(mint));
-    });
-    return this;
+    return this.setMints(mints, tags, true);
   }
 
   /**
-   * Add all mints in a mintlist to the repository. If a mint already exists, the tags are merged.
-   * Tags are added to all mints.
+   * Add all mints in a mintlist to the repository. If a mint exists, tags are merged. Tags are
+   * added to all mints.
    * @param mintlist Mintlist to add
    * @param tags Tags to add to the mints
    * @returns This instance of the repository
    */
   addMintlist(mintlist: Mintlist, tags: string[] = []): TokenRepository {
-    return this.addMints(mintlist.mints, tags);
+    return this.setMints(mintlist.mints, tags, true);
   }
 
   /**
-   * Excludes mints from the repository. Excluded mints will not be returned by the repository in
-   * any get methods. Once a mint is excluded, it cannot be unexcluded. If an excluded mint is added
-   * to the repository, it will still be excluded.
-   * @param mints Mints to exclude
+   * Tags a mint with the given tags without adding the mint to the repository. If the mint is added
+   * later, it will have the given tags.
+   * @param mint Mint to tag
+   * @param tags Tags to add to the mint
    * @returns This instance of the repository
    */
-  excludeMints(mints: Address[]): TokenRepository {
-    mints.forEach((mint) => this.excluded.add(mint.toString()));
-    return this;
+  tagMint(mint: Address, tags: string[]): TokenRepository {
+    return this.setMints([mint], tags, false);
   }
 
   /**
-   * Excludes all mints in a mintlist from the repository. Excluded mints will not be returned by
-   * the repository in any get methods. Once a mint is excluded, it cannot be unexcluded. If an
-   * excluded mint is added to the repository, it will still be excluded.
-   * @param mintlist Mintlist to exclude
+   * Tags multiple mints with the given tags without adding the mints to the repository. If the
+   * mints are added later, they will have the given tags.
+   * @param mints Mints to tag
+   * @param tags Tags to add to the mints
    * @returns This instance of the repository
    */
-  excludeMintlist(mintlist: Mintlist): TokenRepository {
-    return this.excludeMints(mintlist.mints);
+  tagMints(mints: Address[], tags: string[]): TokenRepository {
+    return this.setMints(mints, tags, false);
+  }
+
+  /**
+   * Tags all mints in a mintlist with the given tags without adding the mints to the repository.
+   * If the mints are added later, they will have the given tags.
+   * @param mintlist Mintlist to tag
+   * @param tags Tags to add to the mints
+   * @returns This instance of the repository
+   */
+  tagMintlist(mintlist: Mintlist, tags: string[]): TokenRepository {
+    return this.setMints(mintlist.mints, tags, false);
   }
 
   /**
@@ -104,9 +113,11 @@ export class TokenRepository {
    * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns All token metadatas with tags in the repository
    */
-  async fetchAll(fetcher: TokenFetcher, refresh = false): Promise<TokenWithTags[]> {
-    const mints = this.mintMap.keys();
-    return this.fetchMany(fetcher, Array.from(mints), refresh);
+  async fetchAll(fetcher: TokenFetcher, refresh = false): Promise<TokenResult[]> {
+    const mints = Array.from(this.mintMap.entries())
+      .filter(([, entry]) => entry.exists)
+      .map(([mint]) => mint);
+    return this.fetchMany(fetcher, mints, refresh);
   }
 
   /**
@@ -119,20 +130,9 @@ export class TokenRepository {
    * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
    * @returns Token metadata and tags. Null if mint is excluded.
    */
-  async fetch(
-    fetcher: TokenFetcher,
-    mint: Address,
-    refresh = false
-  ): Promise<TokenWithTags | null> {
-    const mintString = mint.toString();
-    if (this.excluded.has(mintString) || !this.mintMap.has(mintString)) {
-      return null;
-    }
+  async fetch(fetcher: TokenFetcher, mint: Address, refresh = false): Promise<TokenResult> {
     const token = await fetcher.find(mint, refresh);
-    const overrides = this.overrides[mintString];
-    const tagSet = this.mintMap.get(mintString);
-    const tags = tagSet ? Array.from(tagSet) : [];
-    return { ...token, ...overrides, tags };
+    return this.toTokenResult(token);
   }
 
   /**
@@ -149,18 +149,9 @@ export class TokenRepository {
     fetcher: TokenFetcher,
     mints: Address[],
     refresh = false
-  ): Promise<TokenWithTags[]> {
-    const filteredMints = AddressUtil.toStrings(mints).filter(
-      (mint) => this.mintMap.has(mint) && !this.excluded.has(mint)
-    );
-    const tokens = await fetcher.findMany(filteredMints, refresh);
-    return Array.from(tokens.values()).map((token) => {
-      const mintString = token.mint.toString();
-      const tagSet = this.mintMap.get(mintString);
-      const tags = tagSet ? Array.from(tagSet) : [];
-      const overrides = this.overrides[mintString];
-      return { ...token, ...overrides, tags };
-    });
+  ): Promise<TokenResult[]> {
+    const tokens = await fetcher.findMany(mints, refresh);
+    return Array.from(tokens.values()).map(this.toTokenResult);
   }
 
   /**
@@ -173,7 +164,7 @@ export class TokenRepository {
    * @returns Token metadata and tags for all mints with the given tag. Excluded mints are not
    * returned.
    */
-  async fetchByTag(fetcher: TokenFetcher, tag: string, refresh = false): Promise<TokenWithTags[]> {
+  async fetchByTag(fetcher: TokenFetcher, tag: string, refresh = false): Promise<TokenResult[]> {
     const mintSet = this.tagMap.get(tag);
     if (!mintSet) {
       return [];
@@ -192,8 +183,8 @@ export class TokenRepository {
     if (tag === undefined) {
       return this.mintMap.has(mintString);
     }
-    const tagSet = this.mintMap.get(mintString);
-    return tagSet?.has(tag) ?? false;
+    const entry = this.mintMap.get(mintString);
+    return entry?.tags.has(tag) ?? false;
   }
 
   /**
@@ -205,5 +196,54 @@ export class TokenRepository {
   setOverrides(overrides: Overrides): TokenRepository {
     this.overrides = overrides;
     return this;
+  }
+
+  /**
+   * Internal method to set mint metadata in the repository. The entry stores tags as well as a flag
+   * indicating existence in the repository.
+   * @param mints Mints to process
+   * @param tags Tags to add to the mints
+   * @param addToRepo Flag indicating whether to add the mints to the repository
+   * @returns This instance of the repository
+   */
+  private setMints(mints: Address[], tags: string[] = [], addToRepo: boolean): TokenRepository {
+    mints.forEach((mint) => {
+      const mintString = mint.toString();
+      if (!this.mintMap.has(mintString)) {
+        this.mintMap.set(mintString, { exists: addToRepo, tags: new Set() });
+      }
+      const entry = this.mintMap.get(mintString)!;
+      if (addToRepo) {
+        entry.exists = true;
+      }
+      tags.forEach((tag) => entry.tags.add(tag));
+      this.mintMap.set(mintString, entry);
+    });
+
+    tags.forEach((tag) => {
+      if (!this.tagMap.has(tag)) {
+        this.tagMap.set(tag, new Set());
+      }
+      const mintSet = this.tagMap.get(tag)!;
+      AddressUtil.toStrings(mints).forEach((mint) => mintSet.add(mint));
+    });
+    return this;
+  }
+
+  /**
+   * Converts to TokenResult by adding tags, overrides, and exist flag derived from repo state.
+   * @param token Token to convert
+   * @returns TokenResult with tags and existence flag
+   */
+  private toTokenResult(token: Token): TokenResult {
+    const mintString = token.mint.toString();
+    const entry = this.mintMap.get(mintString);
+    const overrides = this.overrides[mintString];
+    return {
+      ...token,
+      ...overrides,
+      exists: entry ? entry.exists : false,
+      tags: entry ? Array.from(entry.tags) : [],
+    };
   }
 }
