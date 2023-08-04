@@ -212,11 +212,10 @@ export class TokenRepository {
         this.mintMap.set(mintString, { exists: addToRepo, tags: new Set() });
       }
       const entry = this.mintMap.get(mintString)!;
-      if (addToRepo) {
-        entry.exists = true;
-      }
       tags.forEach((tag) => entry.tags.add(tag));
-      this.mintMap.set(mintString, entry);
+      if (addToRepo && !entry.exists) {
+        this.mintMap.set(mintString, { ...entry, exists: true });
+      }
     });
 
     tags.forEach((tag) => {
