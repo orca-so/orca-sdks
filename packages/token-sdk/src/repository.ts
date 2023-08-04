@@ -179,11 +179,11 @@ export class TokenRepository {
    */
   has(mint: Address, tag?: string): boolean {
     const mintString = mint.toString();
-    if (tag === undefined) {
-      return this.mintMap.has(mintString);
-    }
     const entry = this.mintMap.get(mintString);
-    return entry?.tags.has(tag) ?? false;
+    if (!entry || !entry.exists) {
+      return false;
+    }
+    return tag !== undefined ? entry.tags.has(tag) : true;
   }
 
   /**

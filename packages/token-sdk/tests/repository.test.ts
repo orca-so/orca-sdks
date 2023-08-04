@@ -257,5 +257,8 @@ describe("token-repository", () => {
     expect(repo.has(mint1, "whitelisted")).toBeFalsy();
     expect(repo.has(mint2)).toBeFalsy();
     expect(repo.has(mint2, "tag1")).toBeFalsy();
+
+    repo.tagMint(mint2, ["whitelisted"]);
+    expect(repo.has(mint2)).toBeFalsy();
   });
 });
