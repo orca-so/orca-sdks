@@ -122,14 +122,14 @@ export class TokenRepository {
   }
 
   /**
-   * Fetches token metadata and tags for a given mint.
-   * If the mint is excluded, null is returned.
-   * If the mint is not in the repository, null is returned.
+   * Augments the TokenFetcher fetch method with metadata from this repository instance. All tokens
+   * will be fetched, but the result will also include a flag indicating presence in this repository
+   * as well as additional metadata such as tags.
    *
    * @param fetcher TokenFetcher to use
    * @param mint Mint to get
    * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
-   * @returns Token metadata and tags. Null if mint is excluded.
+   * @returns TokenResult containing metadata, tags, and flag indicating presence in this repo
    */
   async fetch(fetcher: TokenFetcher, mint: Address, refresh = false): Promise<TokenResult> {
     const token = await fetcher.find(mint, refresh);
@@ -137,14 +137,14 @@ export class TokenRepository {
   }
 
   /**
-   * Fetches token metadata and tags for the given mints that are in the repository.
-   * If a mint is excluded, it is not returned.
-   * If a mint is not in the repository, it is not returned.
+   * Augments the TokenFetcher fetchMany method with metadata from this repository instance. All
+   * tokens will be fetched, but the result will also include a flag indicating presence in this
+   * repository as well as additional metadata such as tags.
    *
    * @param fetcher TokenFetcher to use
    * @param mints Mints to get
    * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
-   * @returns Token metadata and tags for the given mints. Excluded mints are not returned.
+   * @returns TokenResults containing metadata, tags, and flag indicating presence in this repo
    */
   async fetchMany(
     fetcher: TokenFetcher,
@@ -156,14 +156,12 @@ export class TokenRepository {
   }
 
   /**
-   * Fetches all token metadata and tags for all mints with the given tag.
-   * If a mint is excluded, it is not returned.
-   * If a mint is not in the repository, it is not returned.
+   * Fetches all tokens that have been tagged by a specific string in this repository.
+   *
    * @param fetcher TokenFetcher to use
    * @param tag Tag to get
    * @param refresh If true, fetches metadata from all providers. If false, uses cached metadata.
-   * @returns Token metadata and tags for all mints with the given tag. Excluded mints are not
-   * returned.
+   * @returns TokenResults containing metadata, tags, and flag indicating presence in this repo
    */
   async fetchByTag(fetcher: TokenFetcher, tag: string, refresh = false): Promise<TokenResult[]> {
     const mintSet = this.tagMap.get(tag);
