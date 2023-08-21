@@ -38,6 +38,6 @@ export type TransactionPayload = {
  * @deprecated
  */
 export type SendTxRequest = {
-  transaction: Transaction;
-  signers?: Array<Signer | undefined>;
+  transaction: Transaction | VersionedTransaction;
+  signers?: Signer[];
 };
