@@ -147,7 +147,6 @@ function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, block
     }
     return tx;
   } else {
-    console.log(`Rewriting transaction - ${JSON.stringify(txRequest.transaction)}`)
     let tx: Transaction = txRequest.transaction;
     let signers = txRequest.signers ?? [];
 
