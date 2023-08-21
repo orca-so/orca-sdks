@@ -1,4 +1,10 @@
-import { Commitment, Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
+import {
+  Commitment,
+  Connection,
+  PublicKey,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { isVersionedTransaction } from "./transactions-builder";
 import { SendTxRequest } from "./types";
@@ -11,7 +17,7 @@ export class TransactionProcessor {
     readonly connection: Connection,
     readonly wallet: Wallet,
     readonly commitment: Commitment = "confirmed"
-  ) { }
+  ) {}
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
     transaction: Transaction | VersionedTransaction;
