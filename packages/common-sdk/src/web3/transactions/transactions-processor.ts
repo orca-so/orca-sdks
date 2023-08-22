@@ -1,5 +1,12 @@
-import { Commitment, Connection, PublicKey, Signer, Transaction } from "@solana/web3.js";
+import {
+  Commitment,
+  Connection,
+  PublicKey,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { Wallet } from "../wallet";
+import { isVersionedTransaction } from "./transactions-builder";
 import { SendTxRequest } from "./types";
 
 /**
@@ -13,7 +20,7 @@ export class TransactionProcessor {
   ) {}
 
   public async signTransaction(txRequest: SendTxRequest): Promise<{
-    transaction: Transaction;
+    transaction: Transaction | VersionedTransaction;
     lastValidBlockHeight: number;
     blockhash: string;
   }> {
@@ -24,7 +31,7 @@ export class TransactionProcessor {
   }
 
   public async signTransactions(txRequests: SendTxRequest[]): Promise<{
-    transactions: Transaction[];
+    transactions: (Transaction | VersionedTransaction)[];
     lastValidBlockHeight: number;
     blockhash: string;
   }> {
@@ -44,7 +51,7 @@ export class TransactionProcessor {
   }
 
   public async sendTransaction(
-    transaction: Transaction,
+    transaction: Transaction | VersionedTransaction,
     lastValidBlockHeight: number,
     blockhash: string
   ): Promise<string> {
@@ -59,12 +66,12 @@ export class TransactionProcessor {
   }
 
   public constructSendTransactions(
-    transactions: Transaction[],
+    transactions: (Transaction | VersionedTransaction)[],
     lastValidBlockHeight: number,
     blockhash: string,
     parallel: boolean = true
   ): () => Promise<PromiseSettledResult<string>[]> {
-    const executeTx = async (tx: Transaction) => {
+    const executeTx = async (tx: Transaction | VersionedTransaction) => {
       const rawTxs = tx.serialize();
       return this.connection.sendRawTransaction(rawTxs, {
         preflightCommitment: this.commitment,
@@ -108,7 +115,7 @@ export class TransactionProcessor {
   }
 
   public async signAndConstructTransaction(txRequest: SendTxRequest): Promise<{
-    signedTx: Transaction;
+    signedTx: Transaction | VersionedTransaction;
     execute: () => Promise<string>;
   }> {
     const { transaction, lastValidBlockHeight, blockhash } = await this.signTransaction(txRequest);
@@ -122,7 +129,7 @@ export class TransactionProcessor {
     txRequests: SendTxRequest[],
     parallel: boolean = true
   ): Promise<{
-    signedTxs: Transaction[];
+    signedTxs: (Transaction | VersionedTransaction)[];
     execute: () => Promise<PromiseSettledResult<string>[]>;
   }> {
     const { transactions, lastValidBlockHeight, blockhash } = await this.signTransactions(
@@ -139,10 +146,22 @@ export class TransactionProcessor {
 }
 
 function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, blockhash: string) {
-  const signers = txRequest.signers ?? [];
-  const tx = txRequest.transaction;
-  tx.feePayer = feePayer;
-  tx.recentBlockhash = blockhash;
-  signers.filter((s): s is Signer => s !== undefined).forEach((keypair) => tx.partialSign(keypair));
-  return tx;
+  if (isVersionedTransaction(txRequest.transaction)) {
+    let tx: VersionedTransaction = txRequest.transaction;
+    if (txRequest.signers) {
+      tx.sign(txRequest.signers ?? []);
+    }
+    return tx;
+  } else {
+    let tx: Transaction = txRequest.transaction;
+    let signers = txRequest.signers ?? [];
+
+    tx.feePayer = feePayer;
+    tx.recentBlockhash = blockhash;
+
+    signers.forEach((kp) => {
+      tx.partialSign(kp);
+    });
+    return tx;
+  }
 }
