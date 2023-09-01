@@ -31,9 +31,8 @@ program
   .action(format);
 
 program
-  .command("check-format")
+  .command("lint")
   .description("Check the provided mintlists and overrides for formatting errors")
-  .alias("chkfmt")
   .argument("<root_dir>", "Root directory of mintlists and overrides to check")
   .action(lint);
 
