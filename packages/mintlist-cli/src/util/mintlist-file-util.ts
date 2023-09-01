@@ -1,8 +1,8 @@
-import { Mintlist, Metadata } from "@orca-so/token-sdk";
+import { Mintlist, Overrides } from "@orca-so/token-sdk";
 import { readFileSync, writeFileSync } from "mz/fs";
 import { resolve } from "path";
 import path from "node:path";
-import { AddressUtil } from "@orca-so/common-sdk";
+import { Address, AddressUtil } from "@orca-so/common-sdk";
 
 export class MintlistFileUtil {
   public static readMintlistSync(filePath: string): Mintlist {
@@ -17,9 +17,9 @@ export class MintlistFileUtil {
     }
   }
 
-  public static readOverridesSync(filePath: string): MetadataOverrides {
+  public static readOverridesSync(filePath: string): Overrides {
     try {
-      return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as MetadataOverrides;
+      return JSON.parse(readFileSync(resolve(filePath), "utf-8")) as Overrides;
     } catch (e) {
       throw new Error(`Failed to parse overrides at ${filePath}`);
     }
@@ -63,16 +63,12 @@ export class MintlistFileUtil {
 
   public static formatMintlist(filePath: string) {
     const mintlist = MintlistFileUtil.readMintlistSync(filePath);
-    const mints = AddressUtil.toStrings(mintlist.mints);
-    // Sort ascending order
-    mints.sort((a, b) => a.localeCompare(b));
-    mintlist.mints = mints;
+    mintlist.mints.sort(MintlistFileUtil.cmpMint);
     MintlistFileUtil.writeJsonSync(filePath, mintlist);
   }
 
   public static formatOverrides(filePath: string) {
     const overrides = MintlistFileUtil.readOverridesSync(filePath);
-    // Sort ascending order
     const formatted = Object.fromEntries(
       Object.entries(overrides).sort(([mintA], [mintB]) => mintA.localeCompare(mintB))
     );
@@ -119,6 +115,8 @@ export class MintlistFileUtil {
       .filter((line) => line.length > 0)
       .filter((line) => MintlistFileUtil.validMintlistName(MintlistFileUtil.getFileName(line)));
   }
-}
 
-export type MetadataOverrides = Record<string, Partial<Metadata>>;
+  public static cmpMint(a: Address, b: Address): number {
+    return AddressUtil.toString(a).localeCompare(AddressUtil.toString(b));
+  }
+}

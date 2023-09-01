@@ -24,7 +24,7 @@ export function addMint(mintlistPath: string, addMints: string[]) {
     addedMints.push(mint);
   }
 
-  mints.sort();
+  mints.sort(MintlistFileUtil.cmpMint);
   mintlist.mints = mints;
   MintlistFileUtil.writeJsonSync(mintlistPath, mintlist);
 
