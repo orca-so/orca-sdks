@@ -1,9 +1,8 @@
 import { Command } from "commander";
-import { genTokenlist } from "./cmd/gen-tokenlist";
-import { genIndex } from "./cmd/gen-index";
 import { addMint } from "./cmd/add-mint";
+import { checkFormat } from "./cmd/check-format";
+import { format } from "./cmd/format";
 import { removeMint } from "./cmd/remove-mint";
-import { bump } from "./cmd/bump";
 
 const program = new Command();
 
@@ -25,33 +24,17 @@ program
   .action(removeMint);
 
 program
-  .command("gen-tokenlist")
-  .description("Generate tokenlists from mintlists")
-  .argument("<mintlist...>", "Path to mintlist file(s)")
-  .requiredOption(
-    "--outDir <string>",
-    "Output directory for generated tokenlists",
-    "./src/tokenlists"
-  )
-  .action(genTokenlist);
+  .command("format")
+  .description("Format the provided mintlists and overrides")
+  .alias("fmt")
+  .argument("<root_dir>", "Root directory of mintlists and overrides to format")
+  .action(format);
 
 program
-  .command("gen-index")
-  .description("Generate file that exports all tokenlists and mintlists")
-  .requiredOption(
-    "--inDir <string>",
-    "Input directory to search for mintlists and tokenlists",
-    "./src"
-  )
-  .requiredOption("--outDir <string>", "Output directory for generated index.ts", "./src")
-  .requiredOption("--outFile <string>", "Output file name", "index.ts")
-  .action(genIndex);
-
-program
-  .command("bump")
-  .description("Bump package version")
-  .requiredOption("--before <string>", "Commit hash before bump", "HEAD~1")
-  .requiredOption("--after <string>", "Commit hash after bump", "HEAD")
-  .action(bump);
+  .command("check-format")
+  .description("Check the provided mintlists and overrides for formatting errors")
+  .alias("chkfmt")
+  .argument("<root_dir>", "Root directory of mintlists and overrides to check")
+  .action(checkFormat);
 
 export default program;
