@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { addMint } from "./cmd/add-mint";
-import { checkFormat } from "./cmd/check-format";
+import { lint } from "./cmd/lint";
 import { format } from "./cmd/format";
 import { removeMint } from "./cmd/remove-mint";
 
@@ -35,6 +35,6 @@ program
   .description("Check the provided mintlists and overrides for formatting errors")
   .alias("chkfmt")
   .argument("<root_dir>", "Root directory of mintlists and overrides to check")
-  .action(checkFormat);
+  .action(lint);
 
 export default program;

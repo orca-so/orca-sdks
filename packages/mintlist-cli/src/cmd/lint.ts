@@ -8,7 +8,7 @@ import { MintlistFileUtil } from "../util/mintlist-file-util";
  *
  * @param {string} dir - The directory path to start checking.
  */
-export function checkFormat(dir: string) {
+export function lint(dir: string) {
   const errors = traverseDirectory(dir, checkFileFormat);
   if (errors.length > 0) {
     console.error(`${errors.length} file(s) had formatting errors:\n${errors.join("\n")}`);
