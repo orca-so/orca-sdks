@@ -34,9 +34,19 @@ export class MintlistFileUtil {
     }
 
     const mints = AddressUtil.toStrings(mintlist.mints);
+
+    // Check that all mints are valid
+    mints.forEach((mint) => {
+      try {
+        AddressUtil.toPubKey(mint);
+      } catch (e) {
+        return false;
+      }
+    });
+
+    // Check mints are in ascending order
     for (let i = 1; i < mintlist.mints.length; i++) {
-      // Expect ascending order
-      if (mints[i].localeCompare(mints[i - 1]) <= 0) {
+      if (MintlistFileUtil.cmpMint(mints[i], mints[i - 1]) <= 0) {
         return false;
       }
     }
@@ -44,17 +54,31 @@ export class MintlistFileUtil {
   }
 
   public static checkOverridesFormat(filePath: string): boolean {
-    let overrides;
+    let overrides: Overrides;
     try {
       overrides = MintlistFileUtil.readOverridesSync(filePath);
     } catch (e) {
       return false;
     }
 
+    const VALID_FIELDS = ["name", "symbol", "image"];
+    Object.entries(overrides).forEach(([mint, metadata]) => {
+      // Check that all mints are valid
+      try {
+        AddressUtil.toPubKey(mint);
+      } catch (e) {
+        return false;
+      }
+      // Check that all metadata fields are valid
+      if (!Object.values(metadata).every((f) => VALID_FIELDS.includes(f))) {
+        return false;
+      }
+    });
+
+    // Check mints are in ascending order
     const mints = Object.keys(overrides);
     for (let i = 1; i < mints.length; i++) {
-      // Expect ascending order
-      if (mints[i].localeCompare(mints[i - 1]) <= 0) {
+      if (MintlistFileUtil.cmpMint(mints[i], mints[i - 1]) <= 0) {
         return false;
       }
     }
@@ -70,7 +94,7 @@ export class MintlistFileUtil {
   public static formatOverrides(filePath: string) {
     const overrides = MintlistFileUtil.readOverridesSync(filePath);
     const formatted = Object.fromEntries(
-      Object.entries(overrides).sort(([mintA], [mintB]) => mintA.localeCompare(mintB))
+      Object.entries(overrides).sort(([mintA], [mintB]) => MintlistFileUtil.cmpMint(mintA, mintB))
     );
     MintlistFileUtil.writeJsonSync(filePath, formatted);
   }
@@ -88,7 +112,7 @@ export class MintlistFileUtil {
   }
 
   public static validOverridesName(name: string): boolean {
-    return /^overrides.json$/.test(name);
+    return name === "overrides.json";
   }
 
   public static writeJsonSync(filePath: string, obj: any) {
