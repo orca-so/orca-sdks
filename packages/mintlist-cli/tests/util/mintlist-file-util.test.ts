@@ -5,26 +5,26 @@ describe("mintlist-file-util", () => {
   it("valid json file names", async () => {
     type TestCase = [string, boolean];
     const tests: TestCase[] = [
-      ["xxxx.tokenlist.json", true],
-      ["x235.tokenlist.json", true],
-      ["x23x.tokenlist.json", true],
-      ["xx-.tokenlist.json", false],
-      ["xxxx.TokenList.json", false],
-      ["xxxx.TOKENLIST.json", false],
-      ["x.y.z.tokenlist.json", false],
-      ["xx.yy.zz.tokenlist.json", false],
-      ["x-y-z.tokenlist.json", true],
-      ["x-y-z.n.tokenlist.json", false],
-      ["-x-y-z.tokenlist.json", false],
-      ["x--z.tokenlist.json", false],
-      ["orca-whitelisted.tokenlist.json", true],
+      ["xxxx.mintlist.json", true],
+      ["x235.mintlist.json", true],
+      ["x23x.mintlist.json", true],
+      ["xx-.mintlist.json", false],
+      ["xxxx.MintList.json", false],
+      ["xxxx.MINTLIST.json", false],
+      ["x.y.z.mintlist.json", false],
+      ["xx.yy.zz.mintlist.json", false],
+      ["x-y-z.mintlist.json", true],
+      ["x-y-z.n.mintlist.json", false],
+      ["-x-y-z.mintlist.json", false],
+      ["x--z.mintlist.json", false],
+      ["orca-whitelisted.mintlist.json", true],
       ["orca-whitelisted.bob.json", false],
-      ["x.tokenlist", false],
-      ["x.tokenlist.jsx", false],
+      ["x.mintlist", false],
+      ["x.mintlist.jsx", false],
     ];
 
     for (const [name, expected] of tests) {
-      expect(MintlistFileUtil.validTokenlistName(name)).toBe(expected);
+      expect(MintlistFileUtil.validMintlistName(name)).toBe(expected);
     }
   });
 });

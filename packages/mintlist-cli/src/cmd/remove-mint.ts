@@ -11,7 +11,7 @@ export function removeMint(mintlistPath: string, removeMints: string[]) {
       numRemoved++;
     }
   }
-  mints.sort();
+  mints.sort(MintlistFileUtil.cmpMint);
   mintlist.mints = mints;
   MintlistFileUtil.writeJsonSync(mintlistPath, mintlist);
 
