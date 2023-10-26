@@ -1,18 +1,11 @@
-import {
-  isMetadata,
-  Metaplex,
-  Nft,
-  Sft,
-  Metadata as MetaplexMetadata,
-  toMetaplexFile,
-  Amount,
-  MetaplexFile,
-} from "@metaplex-foundation/js";
+
 import { Connection } from "@solana/web3.js";
 import { MetadataProvider, Metadata } from "./types";
 import { Address, AddressUtil } from "@orca-so/common-sdk";
-import fetch from "isomorphic-unfetch";
 import PQueue from "p-queue";
+import { Context, publicKey } from "@metaplex-foundation/umi";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { fetchJsonMetadata, fetchMetadata, fetchAllMetadata, findMetadataPda, Metadata as MetaplexMetadata, JsonMetadata } from "@metaplex-foundation/mpl-token-metadata";
 
 const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
@@ -29,93 +22,51 @@ interface Opts {
 }
 
 export class MetaplexProvider implements MetadataProvider {
-  private readonly metaplex: Metaplex;
+  private readonly ctx: Context;
   private readonly queue: PQueue;
   private readonly opts: Opts;
 
   constructor(connection: Connection, opts: Opts = {}) {
     const { concurrency = DEFAULT_CONCURRENCY, intervalMs = DEFAULT_INTERVAL_MS } = opts;
-    this.metaplex = createMetaplex(connection);
+    this.ctx = createUmi(connection.rpcEndpoint);
 
     this.queue = new PQueue({ concurrency, interval: intervalMs });
     this.opts = opts;
   }
 
   async find(address: Address): Promise<Readonly<Metadata> | null> {
-    let metadata;
     try {
-      metadata = await this.metaplex
-        .nfts()
-        .findByMint({ mintAddress: AddressUtil.toPubKey(address) });
+      const pda = findMetadataPda(this.ctx, { mint: publicKey(address)});
+      const meta = await fetchMetadata(this.ctx, pda);
+      let image: string | undefined;
+      if (this.opts.loadImage) {
+        const json = await fetchJsonMetadata(this.ctx, meta.uri);
+        image = json.image;
+      }
+      return { symbol: meta.symbol, name: meta.name, image };
     } catch (e) {
       return null;
     }
-    return transformMetadata(metadata);
   }
 
   async findMany(addresses: Address[]): Promise<ReadonlyMap<string, Metadata | null>> {
     const mints = AddressUtil.toPubKeys(addresses);
-    const results = await this.metaplex.nfts().findAllByMintList({ mints });
-    const loadImage = this.opts.loadImage ?? true;
-    const loaded = await Promise.all(
-      results.map((result) => {
-        if (!result) {
-          return null;
-        } else if (loadImage && isMetadata(result)) {
-          return this.queue.add(async () => this.metaplex.nfts().load({ metadata: result }));
-        } else {
-          return result;
-        }
-      })
-    );
+    const pdas = mints.map((mint) => findMetadataPda(this.ctx, { mint: publicKey(mint)}));
+    const metas = await fetchAllMetadata(this.ctx, pdas);
+    let jsons = Array<JsonMetadata | undefined>(metas.length);
+    if (this.opts.loadImage) {
+      jsons = await this.queue.addAll(
+        metas.map((meta) => async () => fetchJsonMetadata(this.ctx, meta.uri))
+      );
+    }
+
     return new Map(
-      loaded.map((metadata, index) => {
+      metas.map((meta, index) => {
         const mint = mints[index].toBase58();
-        const result = metadata ? transformMetadata(metadata) : null;
+        const json = jsons[index];
+        const result = { symbol: meta.symbol, name: meta.name, image: json?.image };
         return [mint, result];
       })
     );
   }
 }
-
-// https://docs.metaplex.com/programs/token-metadata/token-standard
-function transformMetadata(token: Sft | Nft | MetaplexMetadata): Metadata {
-  const metadata: Metadata = {
-    symbol: token.symbol,
-    name: token.name,
-  };
-  // Image is in offchain JSON file. Only populate if JSON file was loaded.
-  if (token.jsonLoaded && token.json) {
-    metadata.image = token.json.image;
-  }
-  return metadata;
-}
-
-// HACK: to avoid the following error
-// TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation
-//
-// https://github.com/metaplex-foundation/js/issues/459 (closed but not fixed)
-//
-// Without this hack, the download of the Json file containing the Metadata will fail
-// and "image" metadata will not be retrieved. However, no error will occur.
-//
-// reference: https://github.com/metaplex-foundation/js/blob/4c2c4eafc2158ab6970073f3d49181228ed54260/packages/js/src/plugins/storageModule/StorageClient.ts#L72-L75
-function createMetaplex(connection: Connection): Metaplex {
-  const metaplex = Metaplex.make(connection);
-  metaplex.storage().setDriver(storageDriver);
-  return metaplex;
-}
-
-const storageDriver = {
-  download: async (uri: string, options: any) => {
-    const response = await fetch(uri, options);
-    const buffer = await response.arrayBuffer();
-    return toMetaplexFile(buffer, uri);
-  },
-  getUploadPrice: function (bytes: number): Promise<Amount> {
-    throw new Error("Function not implemented.");
-  },
-  upload: function (file: MetaplexFile): Promise<string> {
-    throw new Error("Function not implemented.");
-  },
-};
