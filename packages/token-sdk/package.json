@@ -8,9 +8,6 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@metaplex-foundation/mpl-token-metadata": "^3.1.0",
-    "@metaplex-foundation/umi": "^0.8.9",
-    "@metaplex-foundation/umi-bundle-defaults": "^0.8.9",
     "@orca-so/common-sdk": "^0.3.1",
     "@solana/spl-token": "0.3.8",
     "@solana/web3.js": "^1.75.0",
