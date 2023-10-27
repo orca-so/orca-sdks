@@ -44,7 +44,7 @@ export class MetaplexProvider implements MetadataProvider {
       return null;
     }
     let image: string | undefined;
-    if (this.opts.loadImage) {
+    if (this.opts.loadImage ?? true) {
       const json = await this.client.getOffChainMetadata(meta);
       if (json) {
         image = json.image;
@@ -77,7 +77,7 @@ export class MetaplexProvider implements MetadataProvider {
     const metas = datas.map((data, index) => data ? this.client.parseOnChainMetadata(pdas[index], data) : null);
     let jsons = Array<OffChainMetadata | null>(metas.length);
     const jsonHandlers = Array<() => Promise<void>>();
-    if (this.opts.loadImage) {
+    if (this.opts.loadImage ?? true) {
       for (let i = 0; i < metas.length; i += 1) {
         const meta = metas[i];
         if (!meta) {
