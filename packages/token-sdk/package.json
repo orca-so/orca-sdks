@@ -1,6 +1,6 @@
 {
   "name": "@orca-so/token-sdk",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "SPL Token Utilities",
   "repository": "https://github.com/orca-so/orca-sdks",
   "author": "Orca Foundation",
@@ -8,7 +8,6 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@metaplex-foundation/js": "^0.19.4",
     "@orca-so/common-sdk": "^0.3.1",
     "@solana/spl-token": "0.3.8",
     "@solana/web3.js": "^1.75.0",

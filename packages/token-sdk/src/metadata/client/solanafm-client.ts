@@ -5,12 +5,12 @@ const SOLANA_FM_API_URL = "https://api.solana.fm/v0";
 const TOKENS_PATH = "tokens";
 
 export interface SolanaFmClient {
-  getToken(tokenHash: string): Promise<TokenResult>;
-  getTokens(tokenHashes: string[]): Promise<TokenResult[]>;
+  getToken(tokenHash: string): Promise<TokenResponseResult>;
+  getTokens(tokenHashes: string[]): Promise<TokenResponseResult[]>;
 }
 
 export class SolanaFmHttpClient implements SolanaFmClient {
-  async getToken(tokenHash: string): Promise<TokenResult> {
+  async getToken(tokenHash: string): Promise<TokenResponseResult> {
     const url = `${SOLANA_FM_API_URL}/${TOKENS_PATH}/${tokenHash}`;
     let response;
     try {
@@ -28,7 +28,7 @@ export class SolanaFmHttpClient implements SolanaFmClient {
     return json.result;
   }
 
-  async getTokens(tokenHashes: string[]): Promise<TokenResult[]> {
+  async getTokens(tokenHashes: string[]): Promise<TokenResponseResult[]> {
     const url = `${SOLANA_FM_API_URL}/${TOKENS_PATH}`;
     let response;
     try {
@@ -54,16 +54,16 @@ export class SolanaFmHttpClient implements SolanaFmClient {
 export interface GetTokenResponse {
   status: string;
   message: string;
-  result: TokenResult;
+  result: TokenResponseResult;
 }
 
 export interface GetTokensResponse {
   status: string;
   message: string;
-  result: TokenResult[];
+  result: TokenResponseResult[];
 }
 
-export interface TokenResult {
+export interface TokenResponseResult {
   tokenHash: string;
   data: {
     mint: string;

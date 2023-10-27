@@ -1512,6 +1512,20 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@orca-so/token-sdk@0.1.6":
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/@orca-so/token-sdk/-/token-sdk-0.1.6.tgz#a479063f01d0597263b47515bf1b5eaa1748ee19"
+  integrity sha512-DRZqOAnkC2OnLlraS32Ydu9WtamkueSjhpraTJZ3qp6h619ci4GCmUVXNyKXL5TqiKiQOdkqbgF7FvE+//G43w==
+  dependencies:
+    "@metaplex-foundation/js" "^0.19.4"
+    "@orca-so/common-sdk" "^0.3.1"
+    "@solana/spl-token" "0.3.8"
+    "@solana/web3.js" "^1.75.0"
+    isomorphic-unfetch "^4.0.2"
+    p-queue "6.6.2"
+    p-timeout "^4.0.0"
+    tiny-invariant "^1.2.0"
+
 "@randlabs/communication-bridge@1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@randlabs/communication-bridge/-/communication-bridge-1.0.1.tgz#d1ecfc29157afcbb0ca2d73122d67905eecb5bf3"

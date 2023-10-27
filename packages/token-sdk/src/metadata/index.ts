@@ -1,3 +1,4 @@
+export * from "./client";
 export * from "./coingecko-provider";
 export * from "./filesystem-provider";
 export * from "./metadata-util";
