@@ -108,6 +108,18 @@ export class TokenRepository {
   }
 
   /**
+   * Untags all mints in the repository.
+   * @returns This instance of the repository
+   */
+  clearTags(): TokenRepository {
+    Array.from(this.mintMap.entries()).forEach(([, entry]) => {
+      entry.tags.clear();
+    });
+    this.tagMap.clear();
+    return this;
+  }
+
+  /**
    * Fetches all token metadata and tags for all unexcluded mints in the repository.
    *
    * @param fetcher TokenFetcher to use
