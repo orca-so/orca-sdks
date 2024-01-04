@@ -2,7 +2,7 @@ import {
   AccountLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstruction,
+  createAssociatedTokenAccountInstruction,
   createCloseAccountInstruction,
   createInitializeAccountInstruction,
   createSyncNativeInstruction,
@@ -167,7 +167,7 @@ function createWrappedNativeAccountInstructionWithATA(
 
   const instructions: TransactionInstruction[] = [];
 
-  const createAccountInstruction = createAssociatedTokenAccountIdempotentInstruction(
+  const createAccountInstruction = createAssociatedTokenAccountInstruction(
     payerKey,
     tempAccount,
     owner,
