@@ -143,7 +143,7 @@ export async function resolveOrCreateATAs(
       ownerAddress,
       wrappedSolAmountIn,
       accountRentExempt,
-      undefined, // use default
+      payer,
       undefined, // use default
       wrappedSolAccountCreateMethod
     );

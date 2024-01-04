@@ -2,7 +2,7 @@ import {
   AccountLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   createCloseAccountInstruction,
   createInitializeAccountInstruction,
   createSyncNativeInstruction,
@@ -54,7 +54,7 @@ export class TokenUtil {
     createAccountMethod: WrappedSolAccountCreateMethod = "ata",
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
-    const unwrapDestinationKey = unwrapDestination ?? payer ?? owner;
+    const unwrapDestinationKey = unwrapDestination ?? owner ?? payer;
 
     switch (createAccountMethod) {
       case "ata":
@@ -165,28 +165,25 @@ function createWrappedNativeAccountInstructionWithATA(
 ): ResolvedTokenAddressInstruction {
   const tempAccount = getAssociatedTokenAddressSync(NATIVE_MINT, owner);
 
-  const instructions: TransactionInstruction[] = [];
-
-  const createAccountInstruction = createAssociatedTokenAccountInstruction(
-    payerKey,
-    tempAccount,
-    owner,
-    NATIVE_MINT
-  );
-  instructions.push(createAccountInstruction);
+  const instructions: TransactionInstruction[] = [
+    createAssociatedTokenAccountIdempotentInstruction(
+      payerKey,
+      tempAccount,
+      owner,
+      NATIVE_MINT
+    )
+  ];
 
   if (amountIn.gt(ZERO)) {
-    const transferInstruction = SystemProgram.transfer({
+    instructions.push(SystemProgram.transfer({
       fromPubkey: payerKey,
       toPubkey: tempAccount,
       lamports: amountIn.toNumber(),
-    })
-    instructions.push(transferInstruction);
+    }));
 
-    const syncNativeInstruction = createSyncNativeInstruction(
+    instructions.push(createSyncNativeInstruction(
       tempAccount,
-    );
-    instructions.push(syncNativeInstruction);
+    ));
   }
 
   const closeWSOLAccountInstruction = createCloseAccountInstruction(
