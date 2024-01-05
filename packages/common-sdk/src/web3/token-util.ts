@@ -109,7 +109,9 @@ export class TokenUtil {
       tokenMint,
       getAccountRentExempt,
       amount,
-      payer
+      payer,
+      undefined,
+      allowPDASourceWallet
     );
 
     const transferIx = createTransferCheckedInstruction(
