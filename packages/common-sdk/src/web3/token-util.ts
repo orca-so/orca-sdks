@@ -51,7 +51,7 @@ export class TokenUtil {
     rentExemptLamports: number,
     payer?: PublicKey,
     unwrapDestination?: PublicKey,
-    createAccountMethod: WrappedSolAccountCreateMethod = "ata",
+    createAccountMethod: WrappedSolAccountCreateMethod = "keypair",
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
     const unwrapDestinationKey = unwrapDestination ?? owner ?? payer;
