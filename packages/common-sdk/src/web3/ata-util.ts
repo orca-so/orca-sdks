@@ -78,7 +78,7 @@ export async function resolveOrCreateATAs(
   payer = ownerAddress,
   modeIdempotent: boolean = false,
   allowPDAOwnerAddress: boolean = false,
-  wrappedSolAccountCreateMethod: WrappedSolAccountCreateMethod = "ata",
+  wrappedSolAccountCreateMethod: WrappedSolAccountCreateMethod = "keypair",
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
