@@ -54,7 +54,7 @@ export class TokenUtil {
     createAccountMethod: WrappedSolAccountCreateMethod = "keypair",
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
-    const unwrapDestinationKey = unwrapDestination ?? owner ?? payer;
+    const unwrapDestinationKey = unwrapDestination ?? owner;
 
     switch (createAccountMethod) {
       case "ata":
