@@ -2,12 +2,14 @@ import {
   AccountLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
   createCloseAccountInstruction,
   createInitializeAccountInstruction,
+  createSyncNativeInstruction,
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { sha256 } from '@noble/hashes/sha256';
 import BN from "bn.js";
 import invariant from "tiny-invariant";
@@ -23,7 +25,7 @@ export type ResolvedTokenAddressInstruction = {
 /**
  * @category Util
  */
-export type WrappedSolAccountCreateMethod = "keypair" | "withSeed";
+export type WrappedSolAccountCreateMethod = "keypair" | "withSeed" | "ata";
 
 /**
  * @category Util
@@ -52,11 +54,36 @@ export class TokenUtil {
     createAccountMethod: WrappedSolAccountCreateMethod = "keypair",
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
-    const unwrapDestinationKey = unwrapDestination ?? payer ?? owner;
+    const unwrapDestinationKey = unwrapDestination ?? owner;
 
-    return createAccountMethod === "keypair"
-      ? createWrappedNativeAccountInstructionWithKeypair(owner, amountIn, rentExemptLamports, payerKey, unwrapDestinationKey)
-      : createWrappedNativeAccountInstructionWithSeed(owner, amountIn, rentExemptLamports, payerKey, unwrapDestinationKey);
+    switch (createAccountMethod) {
+      case "ata":
+        return createWrappedNativeAccountInstructionWithATA(
+          owner,
+          amountIn,
+          rentExemptLamports,
+          payerKey,
+          unwrapDestinationKey
+        );
+      case "keypair":
+        return createWrappedNativeAccountInstructionWithKeypair(
+          owner,
+          amountIn,
+          rentExemptLamports,
+          payerKey,
+          unwrapDestinationKey
+        );
+      case "withSeed":
+        return createWrappedNativeAccountInstructionWithSeed(
+          owner,
+          amountIn,
+          rentExemptLamports,
+          payerKey,
+          unwrapDestinationKey
+        );
+      default:
+        throw new Error(`Invalid createAccountMethod: ${createAccountMethod}`);
+    }
   }
 
   /**
@@ -127,6 +154,50 @@ export class TokenUtil {
       signers: destinationAtaIx.signers,
     };
   }
+}
+
+function createWrappedNativeAccountInstructionWithATA(
+  owner: PublicKey,
+  amountIn: BN,
+  _rentExemptLamports: number,
+  payerKey: PublicKey,
+  unwrapDestinationKey: PublicKey,
+): ResolvedTokenAddressInstruction {
+  const tempAccount = getAssociatedTokenAddressSync(NATIVE_MINT, owner);
+
+  const instructions: TransactionInstruction[] = [
+    createAssociatedTokenAccountIdempotentInstruction(
+      payerKey,
+      tempAccount,
+      owner,
+      NATIVE_MINT
+    )
+  ];
+
+  if (amountIn.gt(ZERO)) {
+    instructions.push(SystemProgram.transfer({
+      fromPubkey: payerKey,
+      toPubkey: tempAccount,
+      lamports: amountIn.toNumber(),
+    }));
+
+    instructions.push(createSyncNativeInstruction(
+      tempAccount,
+    ));
+  }
+
+  const closeWSOLAccountInstruction = createCloseAccountInstruction(
+    tempAccount,
+    unwrapDestinationKey,
+    owner
+  );
+
+  return {
+    address: tempAccount,
+    instructions,
+    cleanupInstructions: [closeWSOLAccountInstruction],
+    signers: [],
+  };
 }
 
 function createWrappedNativeAccountInstructionWithKeypair(
