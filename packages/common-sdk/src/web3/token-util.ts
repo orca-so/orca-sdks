@@ -136,7 +136,9 @@ export class TokenUtil {
       tokenMint,
       getAccountRentExempt,
       amount,
-      payer
+      payer,
+      undefined,
+      true
     );
 
     const transferIx = createTransferCheckedInstruction(
