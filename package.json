@@ -2,5 +2,25 @@
   "private": true,
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@solana/spl-token": "^0.3.11",
+    "@solana/web3.js": "^1.88.0",
+    "@types/bn.js": "~5.1.5",
+    "@types/decimal.js": "^7.4.0",
+    "@types/jest": "^29.5.11",
+    "@types/mz": "^2.7.8",
+    "@typescript-eslint/eslint-plugin": "^6.18.1",
+    "@typescript-eslint/parser": "^6.18.1",
+    "axios": "^1.6.5",
+    "decimal.js": "^10.4.3",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.1",
+    "process": "^0.11.10",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  }
 }
