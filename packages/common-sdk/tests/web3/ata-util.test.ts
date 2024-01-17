@@ -1,4 +1,5 @@
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   AccountLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
@@ -300,7 +301,7 @@ describe("ata-util", () => {
       fail("should be failed");
     } catch (e: any) {
       expect(e.name).toMatch("TokenOwnerOffCurveError");
-    }  
+    }
   });
 
   it("resolveOrCreateATA, allowPDAOwnerAddress = true", async () => {
@@ -322,7 +323,65 @@ describe("ata-util", () => {
       );
     } catch (e: any) {
       fail("should be failed");
-    }  
+    }
+  });
+
+  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata", async () => {
+    const { connection, wallet } = ctx;
+
+    const wrappedSolAccountCreateMethod = "ata";
+
+    const resolved = await resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      NATIVE_MINT,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+      new BN(LAMPORTS_PER_SOL),
+      wallet.publicKey,
+      false,
+      false,
+      wrappedSolAccountCreateMethod,
+    );
+
+    expect(resolved.instructions.length).toEqual(3);
+    expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.instructions[1].programId.equals(SystemProgram.programId)).toBeTruthy();
+    expect(resolved.instructions[2].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.cleanupInstructions.length).toEqual(1);
+    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.signers.length).toEqual(0);
+
+    const builder = new TransactionBuilder(connection, wallet);
+    builder.addInstruction(resolved);
+    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+  });
+
+  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata, amount = 0", async () => {
+    const { connection, wallet } = ctx;
+
+    const wrappedSolAccountCreateMethod = "ata";
+
+    const resolved = await resolveOrCreateATA(
+      connection,
+      wallet.publicKey,
+      NATIVE_MINT,
+      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+      ZERO,
+      wallet.publicKey,
+      false,
+      false,
+      wrappedSolAccountCreateMethod,
+    );
+
+    expect(resolved.instructions.length).toEqual(1);
+    expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.cleanupInstructions.length).toEqual(1);
+    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    expect(resolved.signers.length).toEqual(0);
+
+    const builder = new TransactionBuilder(connection, wallet);
+    builder.addInstruction(resolved);
+    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
   });
 
   it("resolveOrCreateATA, wrappedSolAccountCreateMethod = keypair", async () => {
