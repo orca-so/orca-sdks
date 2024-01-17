@@ -261,4 +261,23 @@ describe("token-repository", () => {
     repo.tagMint(mint2, ["whitelisted"]);
     expect(repo.has(mint2)).toBeFalsy();
   });
+
+  it("clearTags", async () => {
+    const mints = [mint1, mint2, mint3];
+    const repo = new TokenRepository()
+      .addMints(mints, ["whitelisted"])
+      .addMint(mint1, ["coingecko"]);
+    const whitelisted = await repo.fetchByTag(fetcher, "whitelisted");
+    expect(whitelisted.length).toEqual(3);
+    const coingecko = await repo.fetchByTag(fetcher, "coingecko");
+    expect(coingecko.length).toEqual(1);
+    repo.clearTags();
+
+    expect((await repo.fetchAll(fetcher)).length).toEqual(3);
+    expect((await repo.fetchByTag(fetcher, "whitelisted")).length).toEqual(0);
+    expect((await repo.fetchByTag(fetcher, "coingecko")).length).toEqual(0);
+    expect(repo.has(mint1)).toBeTruthy();
+    expect(repo.has(mint1, "whitelisted")).toBeFalsy();
+    expect((await repo.fetch(fetcher, mint1, true)).tags.length).toEqual(0);
+  });
 });
