@@ -9,7 +9,7 @@ const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
 
 const DEFAULT_HTTP_CONCURRENCY = 30;
-const HTTP_DEFAULT_INTERVAL_MS = 10;
+const DEFAULT_HTTP_INTERVAL_MS = 10;
 
 interface Opts {
   // Metaplex chunk concurrency and interval, hits the Solana RPC endpoint
@@ -41,7 +41,7 @@ export class MetaplexProvider implements MetadataProvider {
       concurrency = DEFAULT_CONCURRENCY,
       intervalMs = DEFAULT_INTERVAL_MS,
       httpConcurrency = DEFAULT_HTTP_CONCURRENCY,
-      httpIntervalMs = HTTP_DEFAULT_INTERVAL_MS,
+      httpIntervalMs = DEFAULT_HTTP_INTERVAL_MS,
     } = opts;
     this.connection = connection;
     this.client = new MetaplexHttpClient();
