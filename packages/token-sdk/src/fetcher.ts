@@ -12,7 +12,7 @@ import invariant from "tiny-invariant";
 import { Metadata, MetadataProvider, MetadataUtil } from "./metadata";
 import pTimeout from "p-timeout";
 
-const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export class TokenFetcher {
   private readonly providers: MetadataProvider[] = [];
@@ -75,6 +75,7 @@ export class TokenFetcher {
       const mintInfos = (
         await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
       ).filter((mintInfo): mintInfo is Mint => mintInfo !== null);
+
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
         const mintString = mint.toBase58();
@@ -106,6 +107,8 @@ export class TokenFetcher {
         });
         if (next.length === 0) {
           break;
+        } else {
+          console.warn(`Missed ${next.length} tokens from ${provider.constructor.name}. Trying next provider...`)
         }
       }
     }

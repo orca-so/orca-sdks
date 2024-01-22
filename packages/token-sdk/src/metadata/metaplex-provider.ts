@@ -8,9 +8,18 @@ import { MetaplexClient, MetaplexHttpClient, OffChainMetadata } from "./client";
 const DEFAULT_CONCURRENCY = 5;
 const DEFAULT_INTERVAL_MS = 1000;
 
+const DEFAULT_HTTP_CONCURRENCY = 30;
+const HTTP_DEFAULT_INTERVAL_MS = 10;
+
 interface Opts {
+  // Metaplex chunk concurrency and interval, hits the Solana RPC endpoint
   concurrency?: number;
   intervalMs?: number;
+
+  // Http fetch requests for offchain metadata, hits json urls
+  httpConcurrency?: number;
+  httpIntervalMs?: number;
+
   /**
    * Flag that indicates whether to load offchain JSON data used to populate image.
    * True by default.
@@ -24,13 +33,20 @@ export class MetaplexProvider implements MetadataProvider {
   private readonly connection: Connection;
   private readonly client: MetaplexClient;
   private readonly queue: PQueue;
+  private readonly http_queue: PQueue;
   private readonly opts: Opts;
 
   constructor(connection: Connection, opts: Opts = {}) {
-    const { concurrency = DEFAULT_CONCURRENCY, intervalMs = DEFAULT_INTERVAL_MS } = opts;
+    const {
+      concurrency = DEFAULT_CONCURRENCY,
+      intervalMs = DEFAULT_INTERVAL_MS,
+      httpConcurrency = DEFAULT_HTTP_CONCURRENCY,
+      httpIntervalMs = HTTP_DEFAULT_INTERVAL_MS,
+    } = opts;
     this.connection = connection;
     this.client = new MetaplexHttpClient();
     this.queue = new PQueue({ concurrency, interval: intervalMs });
+    this.http_queue = new PQueue({ concurrency: httpConcurrency, interval: httpIntervalMs });
     this.opts = opts;
   }
 
@@ -91,7 +107,7 @@ export class MetaplexProvider implements MetadataProvider {
       }
     }
 
-    await this.queue.addAll(jsonHandlers);
+    await this.http_queue.addAll(jsonHandlers);
 
     const map = new Map<string, Metadata | null>();
 
