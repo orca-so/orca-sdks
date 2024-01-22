@@ -1,6 +1,6 @@
 {
   "name": "@orca-so/token-sdk",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "SPL Token Utilities",
   "repository": "https://github.com/orca-so/orca-sdks",
   "author": "Orca Foundation",
@@ -24,7 +24,7 @@
     "watch": "tsc -w -p src",
     "prepublishOnly": "yarn build",
     "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "test": "jest --detectOpenHandles"
+    "test": "jest --verbose --detectOpenHandles"
   },
   "lint-staged": {
     "*.{ts,md}": "yarn run prettier-format"
