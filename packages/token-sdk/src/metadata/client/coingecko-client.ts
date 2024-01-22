@@ -4,8 +4,10 @@ import invariant from "tiny-invariant";
 const CG_API_URL = "https://api.coingecko.com/api/v3";
 const CG_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
 
+const DEFAULT_COINGECKO_TIMEOUT = 10000;
+
 export interface CoinGeckoClient {
-  getContract(assetPlatform: string, contract: string): Promise<ContractResponse | null>;
+  getContract(assetPlatform: string, contract: string, timeoutMs: number | undefined): Promise<ContractResponse | null>;
 }
 
 export class CoinGeckoHttpClient implements CoinGeckoClient {
@@ -20,11 +22,11 @@ export class CoinGeckoHttpClient implements CoinGeckoClient {
       : `${CG_API_URL}${path}`;
   }
 
-  async getContract(assetPlatform: string, contract: string): Promise<ContractResponse | null> {
+  async getContract(assetPlatform: string, contract: string, timeoutMs = DEFAULT_COINGECKO_TIMEOUT): Promise<ContractResponse | null> {
     const path = `/coins/${assetPlatform}/contract/${contract}`;
     let response;
     try {
-      response = await fetch(this.buildUrl(path));
+      response = await fetch(this.buildUrl(path), { signal: AbortSignal.timeout(timeoutMs) });
     } catch (e) {
       throw new Error(`Unexpected error fetching ${path}: ${e}`);
     }

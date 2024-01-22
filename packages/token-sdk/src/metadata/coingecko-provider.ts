@@ -11,22 +11,26 @@ interface Opts {
   apiKey?: string;
   concurrency?: number;
   intervalMs?: number;
+
+  timeoutMs?: number;
 }
 
 export class CoinGeckoProvider implements MetadataProvider {
   private readonly client: CoinGeckoClient;
   private readonly queue: PQueue;
+  private readonly timeoutMs: number | undefined;
 
   constructor(opts: Opts = {}) {
     const { apiKey, concurrency = DEFAULT_CONCURRENCY, intervalMs = DEFAULT_INTERVAL_MS } = opts;
     this.client = new CoinGeckoHttpClient(apiKey);
     this.queue = new PQueue({ concurrency, interval: intervalMs });
+    this.timeoutMs = opts.timeoutMs;
   }
 
   async find(address: Address): Promise<Readonly<Metadata> | null> {
     const mintPubKey = AddressUtil.toPubKey(address);
     try {
-      const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58());
+      const contract = await this.client.getContract(SOLANA_ASSET_PLATFORM, mintPubKey.toBase58(), this.timeoutMs);
       return convertToTokenMetadata(contract);
     } catch (e) {
       return null;
