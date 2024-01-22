@@ -17,6 +17,7 @@ interface Opts {
    * https://github.com/metaplex-foundation/js#load
    */
   loadImage?: boolean;
+  getOffChainMetadataTimeoutMs?: number;
 }
 
 export class MetaplexProvider implements MetadataProvider {
@@ -45,7 +46,7 @@ export class MetaplexProvider implements MetadataProvider {
     }
     let image: string | undefined;
     if (this.opts.loadImage ?? true) {
-      const json = await this.client.getOffChainMetadata(meta);
+      const json = await this.client.getOffChainMetadata(meta, this.opts.getOffChainMetadataTimeoutMs);
       if (json) {
         image = json.image;
       }
@@ -84,7 +85,7 @@ export class MetaplexProvider implements MetadataProvider {
           continue;
         }
         jsonHandlers.push(async () => {
-          const json = await this.client.getOffChainMetadata(meta);
+          const json = await this.client.getOffChainMetadata(meta, this.opts.getOffChainMetadataTimeoutMs);
           jsons[i] = json;
         });
       }

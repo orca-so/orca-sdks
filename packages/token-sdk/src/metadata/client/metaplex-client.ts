@@ -4,6 +4,9 @@ import invariant from "tiny-invariant";
 
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
+// Metadata should be a just tiny JSON file, 2000ms should be sufficient for most cases
+const DEFAULT_GET_OFF_CHAIN_METADATA_TIMEOUT_MS = 2000;
+
 interface Creator {
   address: PublicKey;
   verified: boolean;
@@ -56,7 +59,7 @@ export interface OffChainMetadata {
 export interface MetaplexClient {
   getMetadataAddress(mint: PublicKey): PublicKey;
   parseOnChainMetadata(mint: PublicKey, buffer: Buffer | Uint8Array): OnChainMetadata | null;
-  getOffChainMetadata(metadata: OnChainMetadata): Promise<OffChainMetadata | null>;
+  getOffChainMetadata(metadata: OnChainMetadata, timeoutMs?: number): Promise<OffChainMetadata | null>;
 }
 
 export class MetaplexHttpClient implements MetaplexClient {
@@ -79,12 +82,12 @@ export class MetaplexHttpClient implements MetaplexClient {
     }
   }
 
-  async getOffChainMetadata(metadata: OnChainMetadata): Promise<OffChainMetadata | null> {
+  async getOffChainMetadata(metadata: OnChainMetadata, timeoutMs: number = DEFAULT_GET_OFF_CHAIN_METADATA_TIMEOUT_MS): Promise<OffChainMetadata | null> {
     try {
       if (metadata.uri === "") {
         return null;
       }
-      const response = await fetch(metadata.uri);
+      const response = await fetch(metadata.uri, { signal: AbortSignal.timeout(timeoutMs) });
       if (response.status === 404) {
         return null;
       }
