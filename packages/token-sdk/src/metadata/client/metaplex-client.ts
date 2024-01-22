@@ -4,8 +4,8 @@ import invariant from "tiny-invariant";
 
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
-// Metadata should be a just tiny JSON file, 5000ms should be sufficient for most cases
-const DEFAULT_GET_OFF_CHAIN_METADATA_TIMEOUT_MS = 5000;
+// Metadata should be a just tiny JSON file, 2000ms should be sufficient for most cases
+const DEFAULT_GET_OFF_CHAIN_METADATA_TIMEOUT_MS = 2000;
 
 interface Creator {
   address: PublicKey;

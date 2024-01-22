@@ -13,7 +13,7 @@ describe("metaplex-provider", () => {
   const MINT_SHDW = "SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y";
 
   it("find ok", async () => {
-    const timeoutMs = 5000;
+    const timeoutMs = 2000;
     const metaplex_provider = new MetaplexProvider(ctx.connection, {loadImage: true, concurrency: 1, intervalMs: 1000, getOffChainMetadataTimeoutMs: timeoutMs});
     const fetcher = new TokenFetcher(ctx.connection).addProvider(metaplex_provider);
 
@@ -27,7 +27,7 @@ describe("metaplex-provider", () => {
   });
 
   it("findMany ok", async () => {
-    const timeoutMs = 5000;
+    const timeoutMs = 2000;
     const metaplex_provider = new MetaplexProvider(ctx.connection, {loadImage: true, concurrency: 2, intervalMs: 1000, getOffChainMetadataTimeoutMs: timeoutMs});
     const fetcher = new TokenFetcher(ctx.connection).addProvider(metaplex_provider);
 
