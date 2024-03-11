@@ -9,12 +9,16 @@ import {
   TransactionMessage,
   VersionedTransaction,
   PACKET_DATA_SIZE,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
+import { getPriorityFeeInLamports } from "./compute-budget";
 
-/** 
+const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
+
+/**
   Build options when building a transaction using TransactionBuilder
   @param latestBlockhash
   The latest blockhash to use when building the transaction.
@@ -28,6 +32,9 @@ import { MEASUREMENT_BLOCKHASH } from "./constants";
   If the build support VersionedTransactions, allow providing the lookup
   table accounts to use when building the transaction. This is only used
   when maxSupportedTransactionVersion is set to a number.
+  @param computeBudgetOption
+  The compute budget limit and priority fee to use when building the transaction.
+  This defaults to 'none'.
  */
 export type BuildOptions = LegacyBuildOption | V0BuildOption;
 
@@ -45,7 +52,20 @@ type BaseBuildOption = {
     blockhash: string;
     lastValidBlockHeight: number;
   };
+  computeBudgetOption?: ComputeBudgetOption;
   blockhashCommitment: Commitment;
+};
+
+type ComputeBudgetOption = {
+  type: "none";
+} | {
+  type: "fixed";
+  priorityFeeLamports: number;
+  computeBudgetLimit?: number;
+} | {
+  type: "auto";
+  maxPriorityFeeLamports?: number;
+  computeBudgetLimit?: number;
 };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
@@ -187,6 +207,7 @@ export class TransactionBuilder {
       ...this.opts.defaultBuildOption,
       ...userOptions,
       latestBlockhash: MEASUREMENT_BLOCKHASH,
+      computeBudgetOption: this.opts.defaultBuildOption.computeBudgetOption ?? { type: "none" },
     };
     if (this.isEmpty()) {
       return 0;
@@ -202,9 +223,41 @@ export class TransactionBuilder {
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
   buildSync(options: SyncBuildOptions): TransactionPayload {
-    const { latestBlockhash, maxSupportedTransactionVersion } = options;
+    const {
+      latestBlockhash,
+      maxSupportedTransactionVersion,
+      computeBudgetOption
+    } = options;
 
     const ix = this.compressIx(true);
+    let prependInstructions: TransactionInstruction[] = [];
+
+    if (computeBudgetOption.type === "fixed") {
+      const computeLimit = computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+      const microLamports = Math.floor((computeBudgetOption.priorityFeeLamports * 1_000_000) / computeLimit);
+      prependInstructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: computeLimit,
+        }),
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports,
+        })
+      ]
+    }
+
+    if (computeBudgetOption.type === "auto") {
+      // Auto only works using `build` so when we encounter `auto` here we
+      // just use the use 0 priority budget and default compute budget.
+      // This should only be happening for calucling the tx size so it should be fine.
+      prependInstructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
+        }),
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: 0,
+        })
+      ]
+    }
 
     const allSigners = ix.signers.concat(this.signers);
 
@@ -215,6 +268,7 @@ export class TransactionBuilder {
         ...recentBlockhash,
         feePayer: this.wallet.publicKey,
       });
+      transaction.add(...prependInstructions);
       transaction.add(...ix.instructions);
       transaction.feePayer = this.wallet.publicKey;
 
@@ -250,12 +304,22 @@ export class TransactionBuilder {
    */
   async build(userOptions?: Partial<BuildOptions>): Promise<TransactionPayload> {
     const finalOptions = { ...this.opts.defaultBuildOption, ...userOptions };
-    const { latestBlockhash, blockhashCommitment } = finalOptions;
+    const { latestBlockhash, blockhashCommitment, computeBudgetOption } = finalOptions;
     let recentBlockhash = latestBlockhash;
     if (!recentBlockhash) {
       recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
     }
-    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash });
+    let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
+    if (finalComputeBudgetOption.type === "auto") {
+      const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+      const priorityFeeLamports = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions);
+      finalComputeBudgetOption = {
+        type: "fixed",
+        priorityFeeLamports,
+        computeBudgetLimit
+      };
+    }
+    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash, computeBudgetOption: finalComputeBudgetOption });
   }
 
   /**
