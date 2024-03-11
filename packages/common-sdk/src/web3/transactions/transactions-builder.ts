@@ -312,7 +312,10 @@ export class TransactionBuilder {
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
       const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const priorityFeeLamports = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions);
+      let priorityFeeLamports = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions);
+      if (finalComputeBudgetOption.maxPriorityFeeLamports) {
+        priorityFeeLamports = Math.min(priorityFeeLamports, finalComputeBudgetOption.maxPriorityFeeLamports);
+      }
       finalComputeBudgetOption = {
         type: "fixed",
         priorityFeeLamports,
