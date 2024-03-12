@@ -16,6 +16,7 @@ export async function getPriorityFeeInLamports(
 function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[]): number {
   // Take the 80th percentile of the last 20 slots
   const sortedPriorityFees = recentPriorityFees
+    .sort((a, b) => a.slot - b.slot)
     .slice(-20)
     .sort((a, b) => a.prioritizationFee - b.prioritizationFee);
   const percentileIndex = Math.floor(sortedPriorityFees.length * 0.8);
