@@ -66,6 +66,7 @@ type ComputeBudgetOption = {
   type: "auto";
   maxPriorityFeeLamports?: number;
   computeBudgetLimit?: number;
+  percentile?: number;
 };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
@@ -312,10 +313,10 @@ export class TransactionBuilder {
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
       const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      let priorityFeeLamports = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions);
-      if (finalComputeBudgetOption.maxPriorityFeeLamports) {
-        priorityFeeLamports = Math.min(priorityFeeLamports, finalComputeBudgetOption.maxPriorityFeeLamports);
-      }
+      const percentile = finalComputeBudgetOption.percentile ?? 0.9; // default 90th percentile
+      const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions, percentile);
+      const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? 1000000; // +0.001 SOL
+      const priorityFeeLamports = Math.min(priorityFee, maxPriorityFeeLamports);
       finalComputeBudgetOption = {
         type: "fixed",
         priorityFeeLamports,
