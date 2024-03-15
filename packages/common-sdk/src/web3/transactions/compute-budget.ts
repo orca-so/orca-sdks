@@ -1,6 +1,10 @@
 import { Connection, PublicKey, RecentPrioritizationFees } from "@solana/web3.js";
 import { Instruction } from "./types";
 
+export const MICROLAMPORTS_PER_LAMPORT = 1_000_000;
+export const DEFAULT_PRIORITY_FEE_PERCENTILE = 0.9;
+export const DEFAULT_MAX_PRIORITY_FEE_LAMPORTS = 1000000; // 0.001 SOL
+
 export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,
@@ -11,7 +15,7 @@ export async function getPriorityFeeInLamports(
     lockedWritableAccounts: getLockWritableAccounts(instructions),
   });
   const priorityFee = getPriorityFeeSuggestion(recentPriorityFees, percentile);
-  return (priorityFee * computeBudgetLimit) / 1_000_000;
+  return (priorityFee * computeBudgetLimit) / MICROLAMPORTS_PER_LAMPORT;
 }
 
 function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[], percentile: number): number {

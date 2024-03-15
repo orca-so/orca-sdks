@@ -14,7 +14,7 @@ import {
 import { Wallet } from "../wallet";
 import { Instruction, TransactionPayload } from "./types";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
-import { getPriorityFeeInLamports } from "./compute-budget";
+import { DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, getPriorityFeeInLamports } from "./compute-budget";
 
 const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
@@ -235,7 +235,7 @@ export class TransactionBuilder {
 
     if (computeBudgetOption.type === "fixed") {
       const computeLimit = computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const microLamports = Math.floor((computeBudgetOption.priorityFeeLamports * 1_000_000) / computeLimit);
+      const microLamports = Math.floor((computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit);
       prependInstructions = [
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
@@ -313,9 +313,9 @@ export class TransactionBuilder {
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
       const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const percentile = finalComputeBudgetOption.percentile ?? 0.9; // default 90th percentile
+      const percentile = finalComputeBudgetOption.percentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
       const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions, percentile);
-      const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? 1000000; // +0.001 SOL
+      const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
       const priorityFeeLamports = Math.min(priorityFee, maxPriorityFeeLamports);
       finalComputeBudgetOption = {
         type: "fixed",
