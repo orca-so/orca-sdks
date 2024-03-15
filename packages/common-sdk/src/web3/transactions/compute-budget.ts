@@ -1,25 +1,31 @@
 import { Connection, PublicKey, RecentPrioritizationFees } from "@solana/web3.js";
 import { Instruction } from "./types";
 
+export const MICROLAMPORTS_PER_LAMPORT = 1_000_000;
+export const DEFAULT_PRIORITY_FEE_PERCENTILE = 0.9;
+export const DEFAULT_MAX_PRIORITY_FEE_LAMPORTS = 1000000; // 0.001 SOL
+
 export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,
   instructions: Instruction[],
+  percentile: number
 ): Promise<number> {
   const recentPriorityFees = await connection.getRecentPrioritizationFees({
     lockedWritableAccounts: getLockWritableAccounts(instructions),
   });
-  const priorityFee = getPriorityFeeSuggestion(recentPriorityFees);
-  return (priorityFee * computeBudgetLimit) / 1_000_000;
+  const priorityFee = getPriorityFeeSuggestion(recentPriorityFees, percentile);
+  return (priorityFee * computeBudgetLimit) / MICROLAMPORTS_PER_LAMPORT;
 }
 
-function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[]): number {
-  // Take the 80th percentile of the last 20 slots
+function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[], percentile: number): number {
+  // Take the Xth percentile of all the slots returned
   const sortedPriorityFees = recentPriorityFees
-    .sort((a, b) => a.slot - b.slot)
-    .slice(-20)
     .sort((a, b) => a.prioritizationFee - b.prioritizationFee);
-  const percentileIndex = Math.floor(sortedPriorityFees.length * 0.8);
+  const percentileIndex = Math.min(
+    Math.max(Math.floor(sortedPriorityFees.length * percentile), 0),
+    sortedPriorityFees.length - 1
+  );
   return sortedPriorityFees[percentileIndex].prioritizationFee;
 }
 
