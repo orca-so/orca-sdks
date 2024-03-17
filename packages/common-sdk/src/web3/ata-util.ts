@@ -1,5 +1,6 @@
 import {
   NATIVE_MINT,
+  NATIVE_MINT_2022,
   createAssociatedTokenAccountIdempotentInstruction,
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddressSync,
@@ -7,9 +8,10 @@ import {
 import { Connection, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { ZERO } from "../math";
-import { ParsableTokenAccountInfo, getMultipleParsedAccounts } from "./network";
+import { ParsableMintInfo, ParsableTokenAccountInfo, getMultipleParsedAccounts } from "./network";
 import { ResolvedTokenAddressInstruction, TokenUtil, WrappedSolAccountCreateMethod } from "./token-util";
 import { EMPTY_INSTRUCTION } from "./transactions/types";
+import invariant from "tiny-invariant";
 
 /**
  * IMPORTANT: wrappedSolAmountIn should only be used for input/source token that
@@ -82,15 +84,26 @@ export async function resolveOrCreateATAs(
 ): Promise<ResolvedTokenAddressInstruction[]> {
   const nonNativeMints = requests.filter(({ tokenMint }) => !tokenMint.equals(NATIVE_MINT));
   const nativeMints = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT));
+  const nativeMint2022 = requests.filter(({ tokenMint }) => tokenMint.equals(NATIVE_MINT_2022));
 
   if (nativeMints.length > 1) {
     throw new Error("Cannot resolve multiple WSolAccounts");
   }
 
+  if (nativeMint2022.length > 0) {
+    throw new Error("NATIVE_MINT_2022 is not supported");
+  }
+
   let instructionMap: { [tokenMint: string]: ResolvedTokenAddressInstruction } = {};
   if (nonNativeMints.length > 0) {
-    const nonNativeAddresses = nonNativeMints.map(({ tokenMint }) =>
-      getAssociatedTokenAddressSync(tokenMint, ownerAddress, allowPDAOwnerAddress)
+    const mints = await getMultipleParsedAccounts(
+      connection,
+      nonNativeMints.map((a) => a.tokenMint),
+      ParsableMintInfo
+    );
+
+    const nonNativeAddresses = nonNativeMints.map(({ tokenMint }, index) =>
+      getAssociatedTokenAddressSync(tokenMint, ownerAddress, allowPDAOwnerAddress, mints[index]!.tokenProgram)
     );
 
     const tokenAccounts = await getMultipleParsedAccounts(
@@ -101,7 +114,7 @@ export async function resolveOrCreateATAs(
 
     tokenAccounts.forEach((tokenAccount, index) => {
       const ataAddress = nonNativeAddresses[index]!;
-      let resolvedInstruction;
+      let resolvedInstruction: ResolvedTokenAddressInstruction;
       if (tokenAccount) {
         // ATA whose owner has been changed is abnormal entity.
         // To prevent to send swap/withdraw/collect output to the ATA, an error should be thrown.
@@ -109,24 +122,27 @@ export async function resolveOrCreateATAs(
           throw new Error(`ATA with change of ownership detected: ${ataAddress.toBase58()}`);
         }
 
-        resolvedInstruction = { address: ataAddress, ...EMPTY_INSTRUCTION };
+        resolvedInstruction = { address: ataAddress, tokenProgram: tokenAccount.tokenProgram, ...EMPTY_INSTRUCTION };
       } else {
         const createAtaInstruction = modeIdempotent
           ? createAssociatedTokenAccountIdempotentInstruction(
               payer,
               ataAddress,
               ownerAddress,
-              nonNativeMints[index]!.tokenMint
+              nonNativeMints[index]!.tokenMint,
+              mints[index]!.tokenProgram,
             )
           : createAssociatedTokenAccountInstruction(
               payer,
               ataAddress,
               ownerAddress,
-              nonNativeMints[index]!.tokenMint
+              nonNativeMints[index]!.tokenMint,
+              mints[index]!.tokenProgram,
             );
 
         resolvedInstruction = {
           address: ataAddress,
+          tokenProgram: mints[index]!.tokenProgram,
           instructions: [createAtaInstruction],
           cleanupInstructions: [],
           signers: [],
