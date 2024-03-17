@@ -1,5 +1,6 @@
-import { Account, Mint, unpackAccount, unpackMint } from "@solana/spl-token";
+import { unpackAccount, unpackMint } from "@solana/spl-token";
 import { AccountInfo, PublicKey } from "@solana/web3.js";
+import { AccountWithTokenProgram, MintWithTokenProgram } from "./types";
 
 /**
  * Static abstract class definition to parse entities.
@@ -18,20 +19,20 @@ export interface ParsableEntity<T> {
 /**
  * @category Parsables
  */
-@staticImplements<ParsableEntity<Account>>()
+@staticImplements<ParsableEntity<AccountWithTokenProgram>>()
 export class ParsableTokenAccountInfo {
   private constructor() {}
 
   public static parse(
     address: PublicKey,
     data: AccountInfo<Buffer> | undefined | null
-  ): Account | null {
+  ): AccountWithTokenProgram | null {
     if (!data) {
       return null;
     }
 
     try {
-      return unpackAccount(address, data);
+      return { ...unpackAccount(address, data, data.owner), tokenProgram: data.owner };
     } catch (e) {
       console.error(`error while parsing TokenAccount ${address.toBase58()}: ${e}`);
 
@@ -43,20 +44,20 @@ export class ParsableTokenAccountInfo {
 /**
  * @category Parsables
  */
-@staticImplements<ParsableEntity<Mint>>()
+@staticImplements<ParsableEntity<MintWithTokenProgram>>()
 export class ParsableMintInfo {
   private constructor() {}
 
   public static parse(
     address: PublicKey,
     data: AccountInfo<Buffer> | undefined | null
-  ): Mint | null {
+  ): MintWithTokenProgram | null {
     if (!data) {
       return null;
     }
 
     try {
-      return unpackMint(address, data);
+      return { ...unpackMint(address, data, data.owner), tokenProgram: data.owner };
     } catch (e) {
       console.error(`error while parsing Mint ${address.toBase58()}: ${e}`);
       return null;
