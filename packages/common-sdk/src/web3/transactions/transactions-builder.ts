@@ -269,7 +269,9 @@ export class TransactionBuilder {
         ...recentBlockhash,
         feePayer: this.wallet.publicKey,
       });
-      transaction.add(...prependInstructions);
+      if (prependInstructions.length > 0) {
+        transaction.add(...prependInstructions);
+      }
       transaction.add(...ix.instructions);
       transaction.feePayer = this.wallet.publicKey;
 
