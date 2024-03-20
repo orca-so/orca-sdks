@@ -1,20 +1,20 @@
 import {
   AddressLookupTableAccount,
   Commitment,
+  ComputeBudgetProgram,
   Connection,
+  PACKET_DATA_SIZE,
   SendOptions,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
-  PACKET_DATA_SIZE,
-  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { Instruction, TransactionPayload } from "./types";
-import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, getPriorityFeeInLamports } from "./compute-budget";
+import { MEASUREMENT_BLOCKHASH } from "./constants";
+import { Instruction, TransactionPayload } from "./types";
 
 const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
@@ -285,7 +285,7 @@ export class TransactionBuilder {
     const txnMsg = new TransactionMessage({
       recentBlockhash: recentBlockhash.blockhash,
       payerKey: this.wallet.publicKey,
-      instructions: ix.instructions,
+      instructions: [...prependInstructions, ...ix.instructions],
     });
 
     const { lookupTableAccounts } = options;
