@@ -68,8 +68,8 @@ export class TokenFetcher {
     addresses: Address[],
     refresh: boolean = false
   ): Promise<ReadonlyMap<string, Token>> {
-    const mints = AddressUtil.toPubKeys(addresses);
-    const misses = refresh ? mints : mints.filter((mint) => !this._cache.has(mint.toBase58()));
+    const mints = AddressUtil.toStrings(addresses);
+    const misses = refresh ? mints : mints.filter((mint) => !this._cache.has(mint));
 
     if (misses.length > 0) {
       const mintInfos = (
@@ -78,9 +78,8 @@ export class TokenFetcher {
 
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
-        const mintString = mint.toBase58();
-        this._cache.set(mintString, {
-          mint: mintString,
+        this._cache.set(mint, {
+          mint,
           decimals: mintInfos[index].decimals,
         });
       });
@@ -96,11 +95,10 @@ export class TokenFetcher {
         }
         next = [];
         misses.forEach((mint) => {
-          const mintString = mint.toBase58();
-          const cachedValue = this._cache.get(mintString);
+          const cachedValue = this._cache.get(mint);
           invariant(cachedValue, "Expecting token to be in cache");
-          const token = mergeMetadata(cachedValue, metadatas.get(mintString));
-          this._cache.set(mintString, token);
+          const token = mergeMetadata(cachedValue, metadatas.get(mint));
+          this._cache.set(mint, token);
           if (MetadataUtil.isPartial(token)) {
             next.push(mint);
           }
@@ -113,7 +111,7 @@ export class TokenFetcher {
       }
     }
 
-    return new Map(mints.map((mint) => [mint.toBase58(), this._cache.get(mint.toBase58())!]));
+    return new Map(mints.map((mint) => [mint, this._cache.get(mint)!]));
   }
 
   private request<T>(promise: PromiseLike<T>) {
