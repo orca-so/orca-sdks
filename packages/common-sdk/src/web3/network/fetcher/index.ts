@@ -1,10 +1,9 @@
-import { Account, Mint } from "@solana/spl-token";
-import { ParsableEntity } from "..";
+import { AccountWithTokenProgram, MintWithTokenProgram, ParsableEntity } from "..";
 import { Address } from "../../address-util";
 
 export * from "./simple-fetcher-impl";
 
-export type BasicSupportedTypes = Account | Mint;
+export type BasicSupportedTypes = AccountWithTokenProgram | MintWithTokenProgram;
 
 /**
  * Interface for fetching and caching on-chain accounts
