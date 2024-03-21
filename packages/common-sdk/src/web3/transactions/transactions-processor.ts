@@ -2,6 +2,7 @@ import {
   Commitment,
   Connection,
   PublicKey,
+  Signer,
   Transaction,
   VersionedTransaction,
 } from "@solana/web3.js";
@@ -39,12 +40,14 @@ export class TransactionProcessor {
       this.commitment
     );
     const feePayer = this.wallet.publicKey;
-    const pSignedTxs = txRequests.map((txRequest) => {
-      return rewriteTransaction(txRequest, feePayer, blockhash);
+    // to allow Wallet app to rewrite transaction (e.g. Priority Fee), signing order should be Wallet -> others.
+    const notSignedTxs = txRequests.map((txRequest) => {
+      return preRewriteTransaction(txRequest, feePayer, blockhash);
     });
-    const transactions = await this.wallet.signAllTransactions(pSignedTxs);
+    const walletSignedTxs = await this.wallet.signAllTransactions(notSignedTxs);
+    const signedTxs = walletSignedTxs.map((tx, i) => postSignTransaction(tx, txRequests[i].signers));
     return {
-      transactions,
+      transactions: signedTxs,
       lastValidBlockHeight,
       blockhash,
     };
@@ -145,22 +148,27 @@ export class TransactionProcessor {
   }
 }
 
-function rewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, blockhash: string) {
+function preRewriteTransaction(txRequest: SendTxRequest, feePayer: PublicKey, blockhash: string) {
   if (isVersionedTransaction(txRequest.transaction)) {
     let tx: VersionedTransaction = txRequest.transaction;
-    if (txRequest.signers) {
-      tx.sign(txRequest.signers ?? []);
-    }
     return tx;
   } else {
     let tx: Transaction = txRequest.transaction;
-    let signers = txRequest.signers ?? [];
-
     tx.feePayer = feePayer;
     tx.recentBlockhash = blockhash;
+    return tx;
+  }
+}
 
-    signers.forEach((kp) => {
-      tx.partialSign(kp);
+function postSignTransaction(tx: Transaction | VersionedTransaction, signers: Signer[] | undefined) {
+  if (isVersionedTransaction(tx)) {
+    if (signers && signers.length > 0) {
+      tx.sign(signers);
+    }
+    return tx;
+  } else {
+    signers?.forEach((s) => {
+      tx.partialSign(s);
     });
     return tx;
   }
