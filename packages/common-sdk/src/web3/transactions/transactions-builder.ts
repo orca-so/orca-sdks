@@ -12,11 +12,9 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, getPriorityFeeInLamports } from "./compute-budget";
+import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getPriorityFeeInLamports } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
-
-const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
 /**
   Build options when building a transaction using TransactionBuilder
@@ -65,8 +63,8 @@ type ComputeBudgetOption = {
 } | {
   type: "auto";
   maxPriorityFeeLamports?: number;
-  computeBudgetLimit?: number;
-  percentile?: number;
+  computeLimitMargin?: number;
+  computePricePercentile?: number;
 };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
@@ -252,7 +250,7 @@ export class TransactionBuilder {
       // This should only be happening for calucling the tx size so it should be fine.
       prependInstructions = [
         ComputeBudgetProgram.setComputeUnitLimit({
-          units: computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
+          units: DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
         }),
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: 0,
@@ -314,8 +312,10 @@ export class TransactionBuilder {
     }
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
-      const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const percentile = finalComputeBudgetOption.percentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
+      const margin = finalComputeBudgetOption.computeLimitMargin ?? 0.1;
+      const lookupTableAccounts = finalOptions.maxSupportedTransactionVersion === "legacy" ? undefined : finalOptions.lookupTableAccounts;
+      const computeBudgetLimit = await estimateComputeBudgetLimit(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey, margin);
+      const percentile = finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
       const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions, percentile);
       const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
       const priorityFeeLamports = Math.min(priorityFee, maxPriorityFeeLamports);

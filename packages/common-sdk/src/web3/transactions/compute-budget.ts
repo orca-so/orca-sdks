@@ -1,9 +1,35 @@
-import { Connection, PublicKey, RecentPrioritizationFees } from "@solana/web3.js";
+import { AddressLookupTableAccount, Connection, PublicKey, RecentPrioritizationFees, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { Instruction } from "./types";
 
 export const MICROLAMPORTS_PER_LAMPORT = 1_000_000;
 export const DEFAULT_PRIORITY_FEE_PERCENTILE = 0.9;
 export const DEFAULT_MAX_PRIORITY_FEE_LAMPORTS = 1000000; // 0.001 SOL
+export const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
+
+export async function estimateComputeBudgetLimit(
+  connection: Connection,
+  instructions: Instruction[],
+  lookupTableAccounts: AddressLookupTableAccount[] | undefined,
+  payer: PublicKey,
+  margin: number,
+): Promise<number> {
+  const txMainInstructions = instructions.flatMap((instruction) => instruction.instructions);
+  const txCleanupInstruction = instructions.flatMap((instruction) => instruction.cleanupInstructions);
+  const txMessage = new TransactionMessage({
+    recentBlockhash: PublicKey.default.toBase58(),
+    payerKey: payer,
+    instructions: [...txMainInstructions, ...txCleanupInstruction],
+  }).compileToV0Message(lookupTableAccounts);
+
+  const tx = new VersionedTransaction(txMessage);
+
+  const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
+  if (!simulation.value.unitsConsumed) {
+    return DEFAULT_MAX_COMPUTE_UNIT_LIMIT
+  }
+  const marginUnits = Math.max(0, margin) * simulation.value.unitsConsumed;
+  return simulation.value.unitsConsumed + marginUnits;
+}
 
 export async function getPriorityFeeInLamports(
   connection: Connection,
