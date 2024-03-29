@@ -23,12 +23,17 @@ export async function estimateComputeBudgetLimit(
 
   const tx = new VersionedTransaction(txMessage);
 
-  const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
-  if (!simulation.value.unitsConsumed) {
-    return DEFAULT_MAX_COMPUTE_UNIT_LIMIT
+  try {
+    const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
+    if (!simulation.value.unitsConsumed) {
+      return DEFAULT_MAX_COMPUTE_UNIT_LIMIT
+    }
+    const marginUnits = Math.max(100_000, margin * simulation.value.unitsConsumed);
+    const estimatedUnits = Math.ceil(simulation.value.unitsConsumed + marginUnits);
+    return Math.min(DEFAULT_MAX_COMPUTE_UNIT_LIMIT, estimatedUnits);
+  } catch {
+    return DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
   }
-  const marginUnits = Math.max(0, margin) * simulation.value.unitsConsumed;
-  return simulation.value.unitsConsumed + marginUnits;
 }
 
 export async function getPriorityFeeInLamports(

@@ -100,7 +100,7 @@ export const defaultTransactionBuilderOptions: TransactionBuilderOptions = {
 export class TransactionBuilder {
   private instructions: Instruction[];
   private signers: Signer[];
-  private opts: TransactionBuilderOptions;
+  readonly opts: TransactionBuilderOptions;
 
   constructor(
     readonly connection: Connection,
