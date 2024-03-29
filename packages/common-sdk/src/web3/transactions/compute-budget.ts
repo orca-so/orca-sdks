@@ -13,17 +13,17 @@ export async function estimateComputeBudgetLimit(
   payer: PublicKey,
   margin: number,
 ): Promise<number> {
-  const txMainInstructions = instructions.flatMap((instruction) => instruction.instructions);
-  const txCleanupInstruction = instructions.flatMap((instruction) => instruction.cleanupInstructions);
-  const txMessage = new TransactionMessage({
-    recentBlockhash: PublicKey.default.toBase58(),
-    payerKey: payer,
-    instructions: [...txMainInstructions, ...txCleanupInstruction],
-  }).compileToV0Message(lookupTableAccounts);
-
-  const tx = new VersionedTransaction(txMessage);
-
   try {
+    const txMainInstructions = instructions.flatMap((instruction) => instruction.instructions);
+    const txCleanupInstruction = instructions.flatMap((instruction) => instruction.cleanupInstructions);
+    const txMessage = new TransactionMessage({
+      recentBlockhash: PublicKey.default.toBase58(),
+      payerKey: payer,
+      instructions: [...txMainInstructions, ...txCleanupInstruction],
+    }).compileToV0Message(lookupTableAccounts);
+
+    const tx = new VersionedTransaction(txMessage);
+
     const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
     if (!simulation.value.unitsConsumed) {
       return DEFAULT_MAX_COMPUTE_UNIT_LIMIT
@@ -61,9 +61,9 @@ function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[]
 }
 
 function getLockWritableAccounts(instructions: Instruction[]): PublicKey[] {
-  const accountKeys = instructions
+  return instructions
     .flatMap((instruction) => [...instruction.instructions, ...instruction.cleanupInstructions])
-    .flatMap((instruction) => instruction.keys);
-  const writableAccounts = accountKeys.filter((key) => key.isWritable).map((key) => key.pubkey);
-  return Array.from(new Set(writableAccounts));
+    .flatMap((instruction) => instruction.keys)
+    .filter((key) => key.isWritable)
+    .map((key) => key.pubkey);
 }
