@@ -1,4 +1,4 @@
-import fetch from "isomorphic-unfetch";
+import fetch from "cross-fetch";
 import invariant from "tiny-invariant";
 
 const SOLANA_FM_API_URL = "https://api.solana.fm/v0";
