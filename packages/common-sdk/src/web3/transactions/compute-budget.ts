@@ -39,11 +39,11 @@ export async function estimateComputeBudgetLimit(
 export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,
-  instructions: Instruction[],
-  percentile: number
+  lockedWritableAccounts: PublicKey[],
+  percentile: number = DEFAULT_PRIORITY_FEE_PERCENTILE
 ): Promise<number> {
   const recentPriorityFees = await connection.getRecentPrioritizationFees({
-    lockedWritableAccounts: getLockWritableAccounts(instructions),
+    lockedWritableAccounts,
   });
   const priorityFee = getPriorityFeeSuggestion(recentPriorityFees, percentile);
   return (priorityFee * computeBudgetLimit) / MICROLAMPORTS_PER_LAMPORT;
@@ -60,7 +60,7 @@ function getPriorityFeeSuggestion(recentPriorityFees: RecentPrioritizationFees[]
   return sortedPriorityFees[percentileIndex].prioritizationFee;
 }
 
-function getLockWritableAccounts(instructions: Instruction[]): PublicKey[] {
+export function getLockWritableAccounts(instructions: Instruction[]): PublicKey[] {
   return instructions
     .flatMap((instruction) => [...instruction.instructions, ...instruction.cleanupInstructions])
     .flatMap((instruction) => instruction.keys)
