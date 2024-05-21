@@ -1,4 +1,4 @@
-import fetch from "isomorphic-unfetch";
+import fetch from "cross-fetch";
 import invariant from "tiny-invariant";
 
 const CG_API_URL = "https://api.coingecko.com/api/v3";

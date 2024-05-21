@@ -1,22 +1,20 @@
 import {
   AddressLookupTableAccount,
   Commitment,
+  ComputeBudgetProgram,
   Connection,
+  PACKET_DATA_SIZE,
   SendOptions,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
-  PACKET_DATA_SIZE,
-  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { Instruction, TransactionPayload } from "./types";
+import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
-import { DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, getPriorityFeeInLamports } from "./compute-budget";
-
-const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
+import { Instruction, TransactionPayload } from "./types";
 
 /**
   Build options when building a transaction using TransactionBuilder
@@ -65,8 +63,8 @@ type ComputeBudgetOption = {
 } | {
   type: "auto";
   maxPriorityFeeLamports?: number;
-  computeBudgetLimit?: number;
-  percentile?: number;
+  computeLimitMargin?: number;
+  computePricePercentile?: number;
 };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
@@ -102,7 +100,7 @@ export const defaultTransactionBuilderOptions: TransactionBuilderOptions = {
 export class TransactionBuilder {
   private instructions: Instruction[];
   private signers: Signer[];
-  private opts: TransactionBuilderOptions;
+  readonly opts: TransactionBuilderOptions;
 
   constructor(
     readonly connection: Connection,
@@ -252,7 +250,7 @@ export class TransactionBuilder {
       // This should only be happening for calucling the tx size so it should be fine.
       prependInstructions = [
         ComputeBudgetProgram.setComputeUnitLimit({
-          units: computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
+          units: DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
         }),
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: 0,
@@ -285,7 +283,7 @@ export class TransactionBuilder {
     const txnMsg = new TransactionMessage({
       recentBlockhash: recentBlockhash.blockhash,
       payerKey: this.wallet.publicKey,
-      instructions: ix.instructions,
+      instructions: [...prependInstructions, ...ix.instructions],
     });
 
     const { lookupTableAccounts } = options;
@@ -314,9 +312,11 @@ export class TransactionBuilder {
     }
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
-      const computeBudgetLimit = finalComputeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const percentile = finalComputeBudgetOption.percentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
-      const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, this.instructions, percentile);
+      const margin = finalComputeBudgetOption.computeLimitMargin ?? 0.1;
+      const lookupTableAccounts = finalOptions.maxSupportedTransactionVersion === "legacy" ? undefined : finalOptions.lookupTableAccounts;
+      const computeBudgetLimit = await estimateComputeBudgetLimit(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey, margin);
+      const percentile = finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
+      const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, getLockWritableAccounts(this.instructions), percentile);
       const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
       const priorityFeeLamports = Math.min(priorityFee, maxPriorityFeeLamports);
       finalComputeBudgetOption = {

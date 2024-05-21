@@ -1,5 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
-import fetch from "isomorphic-unfetch";
+import fetch from "cross-fetch";
 import invariant from "tiny-invariant";
 
 const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
