@@ -14,7 +14,7 @@ export class Percentage {
   }
 
   public static fromDecimal(number: Decimal): Percentage {
-    return Percentage.fromFraction(number.toDecimalPlaces(1).mul(10).toNumber(), 1000);
+    return Percentage.fromFraction(number.mul(100000).toNumber(), 10000000);
   }
 
   public static fromFraction(numerator: BN | number, denominator: BN | number): Percentage {
