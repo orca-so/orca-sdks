@@ -3,11 +3,11 @@ import { Token } from "./types";
 import {
   Address,
   AddressUtil,
+  MintWithTokenProgram,
   ParsableMintInfo,
   getMultipleParsedAccounts,
   getParsedAccount,
 } from "@orca-so/common-sdk";
-import { Mint } from "@solana/spl-token";
 import invariant from "tiny-invariant";
 import { Metadata, MetadataProvider, MetadataUtil } from "./metadata";
 import pTimeout from "p-timeout";
@@ -43,7 +43,11 @@ export class TokenFetcher {
         getParsedAccount(this.connection, mint, ParsableMintInfo)
       );
       invariant(mintInfo, "Mint not found");
-      this._cache.set(mintString, { mint: mintString, decimals: mintInfo.decimals });
+      this._cache.set(mintString, {
+        mint: mintString,
+        decimals: mintInfo.decimals,
+        tokenProgram: mintInfo.tokenProgram,
+      });
 
       for (const provider of this.providers) {
         try {
@@ -74,13 +78,14 @@ export class TokenFetcher {
     if (misses.length > 0) {
       const mintInfos = (
         await this.request(getMultipleParsedAccounts(this.connection, misses, ParsableMintInfo))
-      ).filter((mintInfo): mintInfo is Mint => mintInfo !== null);
+      ).filter((mintInfo): mintInfo is MintWithTokenProgram => mintInfo !== null);
 
       invariant(misses.length === mintInfos.length, "At least one mint info not found");
       misses.forEach((mint, index) => {
         this._cache.set(mint, {
           mint,
           decimals: mintInfos[index].decimals,
+          tokenProgram: mintInfos[index].tokenProgram,
         });
       });
 
@@ -126,6 +131,7 @@ function mergeMetadata(token: Token, metadata?: Readonly<Metadata> | null): Toke
   return {
     mint: token.mint,
     decimals: token.decimals,
+    tokenProgram: token.tokenProgram,
     ...MetadataUtil.merge(token, metadata),
   };
 }

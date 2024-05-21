@@ -2,6 +2,7 @@ import { Address } from "@orca-so/common-sdk";
 import { TokenFetcher } from "../src/fetcher";
 import { FileSystemProvider, Metadata, MetadataProvider } from "../src/metadata";
 import { createNewMint, createTestContext, requestAirdrop } from "./test-context";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 jest.setTimeout(100 * 1000 /* ms */);
 
@@ -61,12 +62,13 @@ describe("token-fetcher", () => {
       new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
     );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
+      .setCache(new Map([[mint, { mint, decimals: 9, tokenProgram: TOKEN_PROGRAM_ID, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
     const metadata = await fetcher.find(mint);
     expect(metadata.name).toEqual("ORIGINAL_TOKEN_NAME");
     expect(metadata.symbol).toBeUndefined();
     expect(metadata.image).toBeUndefined();
+    expect(metadata.tokenProgram.toString()).toEqual(TOKEN_PROGRAM_ID.toString());
     expect(metadata.decimals).toEqual(9);
     expect(metadata.mint).toEqual(mint);
   });
@@ -77,12 +79,13 @@ describe("token-fetcher", () => {
       new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
     );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
+      .setCache(new Map([[mint, { mint, decimals: 9, tokenProgram: TOKEN_PROGRAM_ID, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
     const metadata = await fetcher.find(mint, true);
     expect(metadata.name).toEqual("TOKEN_NAME");
     expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
     expect(metadata.image).toEqual("TOKEN_IMAGE");
+    expect(metadata.tokenProgram.toString()).toEqual(TOKEN_PROGRAM_ID.toString());
     expect(metadata.decimals).toEqual(9);
     expect(metadata.mint).toEqual(mint);
   });
@@ -93,12 +96,13 @@ describe("token-fetcher", () => {
       new Map([[mint, { name: "TOKEN_NAME", symbol: "TOKEN_SYMBOL", image: "TOKEN_IMAGE" }]])
     );
     const fetcher = new TokenFetcher(ctx.connection)
-      .setCache(new Map([[mint, { mint, decimals: 9, name: "ORIGINAL_TOKEN_NAME" }]]))
+      .setCache(new Map([[mint, { mint, decimals: 9, tokenProgram: TOKEN_PROGRAM_ID, name: "ORIGINAL_TOKEN_NAME" }]]))
       .addProvider(p1);
     const metadata = (await fetcher.findMany([mint], true)).get(mint)!;
     expect(metadata.name).toEqual("TOKEN_NAME");
     expect(metadata.symbol).toEqual("TOKEN_SYMBOL");
     expect(metadata.image).toEqual("TOKEN_IMAGE");
+    expect(metadata.tokenProgram.toString()).toEqual(TOKEN_PROGRAM_ID.toString());
     expect(metadata.decimals).toEqual(9);
     expect(metadata.mint).toEqual(mint);
   });

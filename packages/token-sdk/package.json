@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "peerDependencies": {
-    "@orca-so/common-sdk": "^0.4.0",
+    "@orca-so/common-sdk": "^0.6.0-alpha.2",
     "@solana/spl-token": "^0.4.1",
     "@solana/web3.js": "^1.90.0"
   },
