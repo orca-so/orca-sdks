@@ -2,6 +2,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   AccountLayout,
   NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccount,
   getAccount,
@@ -25,420 +26,430 @@ describe("ata-util", () => {
     await requestAirdrop(ctx);
   });
 
-  it("resolveOrCreateATA, wrapped sol", async () => {
-    const { connection, wallet } = ctx;
+  const tokenPrograms = [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID];
+  tokenPrograms.forEach((tokenProgram) => describe(`TokenProgram: ${tokenProgram.toBase58()}`, () => {
+    it("resolveOrCreateATA, wrapped sol", async () => {
+      const { connection, wallet } = ctx;
 
-    // verify address & instruction
-    const notExpected = getAssociatedTokenAddressSync(wallet.publicKey, NATIVE_MINT);
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      NATIVE_MINT,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new BN(LAMPORTS_PER_SOL),
-      wallet.publicKey,
-      false
-    );
-    expect(resolved.address.equals(notExpected)).toBeFalsy(); // non-ATA address
-    expect(resolved.instructions.length).toEqual(2);
-    expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
-    expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.cleanupInstructions.length).toEqual(1);
-    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-  });
-
-  it("resolveOrCreateATA, not exist, modeIdempotent = false", async () => {
-    const mint = await createNewMint(ctx);
-
-    // verify address & instruction
-    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      ZERO,
-      wallet.publicKey,
-      false
-    );
-    expect(resolved.address.equals(expected)).toBeTruthy();
-    expect(resolved.instructions.length).toEqual(1);
-    expect(resolved.instructions[0].data.length).toEqual(0); // no instruction data
-
-    // verify transaction
-    const preAccountData = await connection.getAccountInfo(resolved.address);
-    expect(preAccountData).toBeNull();
-
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await builder.buildAndExecute();
-
-    const postAccountData = await connection.getAccountInfo(resolved.address);
-    expect(postAccountData?.owner.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-  });
-
-  it("resolveOrCreateATA, exist, modeIdempotent = false", async () => {
-    const mint = await createNewMint(ctx);
-
-    const expected = await createAssociatedTokenAccount(
-      ctx.connection,
-      wallet.payer,
-      mint,
-      wallet.publicKey
-    );
-    const preAccountData = await connection.getAccountInfo(expected);
-    expect(preAccountData).not.toBeNull();
-
-    // verify address & instruction
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      ZERO,
-      wallet.publicKey,
-      false
-    );
-    expect(resolved.address.equals(expected)).toBeTruthy();
-    expect(resolved.instructions.length).toEqual(0);
-  });
-
-  it("resolveOrCreateATA, created before execution, modeIdempotent = false", async () => {
-    const mint = await createNewMint(ctx);
-
-    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      ZERO,
-      wallet.publicKey,
-      false
-    );
-    expect(resolved.address.equals(expected)).toBeTruthy();
-    expect(resolved.instructions.length).toEqual(1);
-    expect(resolved.instructions[0].data.length).toEqual(0); // no instruction data
-
-    // created before execution
-    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey);
-    const accountData = await connection.getAccountInfo(expected);
-    expect(accountData).not.toBeNull();
-
-    // Tx should be fail
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).rejects.toThrow();
-  });
-
-  it("resolveOrCreateATA, created before execution, modeIdempotent = true", async () => {
-    const mint = await createNewMint(ctx);
-
-    const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey);
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      mint,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      ZERO,
-      wallet.publicKey,
-      true
-    );
-    expect(resolved.address.equals(expected)).toBeTruthy();
-    expect(resolved.instructions.length).toEqual(1);
-    expect(resolved.instructions[0].data[0]).toEqual(1); // 1 byte data
-
-    // created before execution
-    await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey);
-    const accountData = await connection.getAccountInfo(expected);
-    expect(accountData).not.toBeNull();
-
-    // Tx should be success even if ATA has been created
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-  });
-
-  it("resolveOrCreateATAs, created before execution, modeIdempotent = false", async () => {
-    const mints = await Promise.all([createNewMint(ctx), createNewMint(ctx), createNewMint(ctx)]);
-
-    // create first ATA
-    await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey);
-
-    const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey));
-    const resolved = await resolveOrCreateATAs(
-      connection,
-      wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      wallet.publicKey,
-      false
-    );
-    expect(resolved[0].address.equals(expected[0])).toBeTruthy();
-    expect(resolved[1].address.equals(expected[1])).toBeTruthy();
-    expect(resolved[2].address.equals(expected[2])).toBeTruthy();
-    expect(resolved[0].instructions.length).toEqual(0); // already exists
-    expect(resolved[1].instructions.length).toEqual(1);
-    expect(resolved[2].instructions.length).toEqual(1);
-    expect(resolved[1].instructions[0].data.length).toEqual(0); // no instruction data
-    expect(resolved[2].instructions[0].data.length).toEqual(0); // no instruction data
-
-    // create second ATA before execution
-    await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey);
-
-    const preAccountData = await connection.getMultipleAccountsInfo(expected);
-    expect(preAccountData[0]).not.toBeNull();
-    expect(preAccountData[1]).not.toBeNull();
-    expect(preAccountData[2]).toBeNull();
-
-    // Tx should be fail
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstructions(resolved);
-    await expect(builder.buildAndExecute()).rejects.toThrow();
-  });
-
-  it("resolveOrCreateATAs, created before execution, modeIdempotent = true", async () => {
-    const mints = await Promise.all([createNewMint(ctx), createNewMint(ctx), createNewMint(ctx)]);
-
-    // create first ATA
-    await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey);
-
-    const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey));
-
-    const resolved = await resolveOrCreateATAs(
-      connection,
-      wallet.publicKey,
-      mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      wallet.publicKey,
-      true
-    );
-    expect(resolved[0].address.equals(expected[0])).toBeTruthy();
-    expect(resolved[1].address.equals(expected[1])).toBeTruthy();
-    expect(resolved[2].address.equals(expected[2])).toBeTruthy();
-    expect(resolved[0].instructions.length).toEqual(0); // already exists
-    expect(resolved[1].instructions.length).toEqual(1);
-    expect(resolved[2].instructions.length).toEqual(1);
-    expect(resolved[1].instructions[0].data[0]).toEqual(1); // 1 byte data
-    expect(resolved[2].instructions[0].data[0]).toEqual(1); // 1 byte data
-
-    // create second ATA before execution
-    await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey);
-
-    const preAccountData = await connection.getMultipleAccountsInfo(expected);
-    expect(preAccountData[0]).not.toBeNull();
-    expect(preAccountData[1]).not.toBeNull();
-    expect(preAccountData[2]).toBeNull();
-
-    // Tx should be success even if second ATA has been created
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstructions(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-
-    const postAccountData = await connection.getMultipleAccountsInfo(expected);
-    expect(postAccountData[0]).not.toBeNull();
-    expect(postAccountData[1]).not.toBeNull();
-    expect(postAccountData[2]).not.toBeNull();
-  });
-
-  it("resolveOrCreateATA, owner changed ATA detected", async () => {
-    const anotherWallet = Keypair.generate();
-    const mint = await createNewMint(ctx);
-
-    const ata = await createAssociatedTokenAccount(
-      connection,
-      wallet.payer,
-      mint,
-      wallet.publicKey
-    );
-
-    // should be ok
-    const preOwnerChanged = await resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
-      connection.getMinimumBalanceForRentExemption(AccountLayout.span)
-    );
-    expect(preOwnerChanged.address.equals(ata)).toBeTruthy();
-
-    // owner change
-    await setAuthority(
-      connection,
-      ctx.wallet.payer,
-      ata,
-      wallet.publicKey,
-      2,
-      anotherWallet.publicKey,
-      []
-    );
-
-    // verify that owner have been changed
-    const changed = await getAccount(connection, ata);
-    expect(changed.owner.equals(anotherWallet.publicKey)).toBeTruthy();
-
-    // should be failed
-    const postOwnerChangedPromise = resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
-      connection.getMinimumBalanceForRentExemption(AccountLayout.span)
-    );
-    await expect(postOwnerChangedPromise).rejects.toThrow(/ATA with change of ownership detected/);
-  });
-
-  it("resolveOrCreateATA, allowPDAOwnerAddress = false", async () => {
-    const mint = await createNewMint(ctx);
-
-    const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey); // ATA is one of PDAs
-    const allowPDAOwnerAddress = false;
-
-    try {
-      await resolveOrCreateATA(
+      // verify address & instruction
+      const notExpected = getAssociatedTokenAddressSync(wallet.publicKey, NATIVE_MINT);
+      const resolved = await resolveOrCreateATA(
         connection,
-        pda,
+        wallet.publicKey,
+        NATIVE_MINT,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        new BN(LAMPORTS_PER_SOL),
+        wallet.publicKey,
+        false
+      );
+      expect(resolved.address.equals(notExpected)).toBeFalsy(); // non-ATA address
+      expect(resolved.instructions.length).toEqual(2);
+      expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
+      expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.cleanupInstructions.length).toEqual(1);
+      expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+    });
+
+    it("resolveOrCreateATA, not exist, modeIdempotent = false", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
+
+      // verify address & instruction
+      const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram);
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
         mint,
         () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
         ZERO,
         wallet.publicKey,
-        false,
-        allowPDAOwnerAddress
+        false
       );
+      expect(resolved.address.equals(expected)).toBeTruthy();
+      expect(resolved.instructions.length).toEqual(1);
+      expect(resolved.instructions[0].data.length).toEqual(0); // no instruction data
 
-      fail("should be failed");
-    } catch (e: any) {
-      expect(e.name).toMatch("TokenOwnerOffCurveError");
-    }
-  });
+      // verify transaction
+      const preAccountData = await connection.getAccountInfo(resolved.address);
+      expect(preAccountData).toBeNull();
 
-  it("resolveOrCreateATA, allowPDAOwnerAddress = true", async () => {
-    const mint = await createNewMint(ctx);
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await builder.buildAndExecute();
 
-    const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey); // ATA is one of PDAs
-    const allowPDAOwnerAddress = true;
+      const postAccountData = await connection.getAccountInfo(resolved.address);
+      expect(postAccountData?.owner.equals(tokenProgram)).toBeTruthy();
+    });
 
-    try {
-      await resolveOrCreateATA(
+    it("resolveOrCreateATA, exist, modeIdempotent = false", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
+
+      const expected = await createAssociatedTokenAccount(
+        ctx.connection,
+        wallet.payer,
+        mint,
+        wallet.publicKey,
+        undefined,
+        tokenProgram,
+      );
+      const preAccountData = await connection.getAccountInfo(expected);
+      expect(preAccountData).not.toBeNull();
+
+      // verify address & instruction
+      const resolved = await resolveOrCreateATA(
         connection,
-        pda,
+        wallet.publicKey,
         mint,
         () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
         ZERO,
         wallet.publicKey,
-        false,
-        allowPDAOwnerAddress
+        false
       );
-    } catch (e: any) {
-      fail("should be failed");
-    }
-  });
+      expect(resolved.address.equals(expected)).toBeTruthy();
+      expect(resolved.instructions.length).toEqual(0);
+    });
 
-  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata", async () => {
-    const { connection, wallet } = ctx;
+    it("resolveOrCreateATA, created before execution, modeIdempotent = false", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
 
-    const wrappedSolAccountCreateMethod = "ata";
+      const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram);
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        mint,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        ZERO,
+        wallet.publicKey,
+        false
+      );
+      expect(resolved.address.equals(expected)).toBeTruthy();
+      expect(resolved.instructions.length).toEqual(1);
+      expect(resolved.instructions[0].data.length).toEqual(0); // no instruction data
 
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      NATIVE_MINT,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new BN(LAMPORTS_PER_SOL),
-      wallet.publicKey,
-      false,
-      false,
-      wrappedSolAccountCreateMethod,
-    );
+      // created before execution
+      await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey, undefined, tokenProgram);
+      const accountData = await connection.getAccountInfo(expected);
+      expect(accountData).not.toBeNull();
 
-    expect(resolved.instructions.length).toEqual(3);
-    expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.instructions[1].programId.equals(SystemProgram.programId)).toBeTruthy();
-    expect(resolved.instructions[2].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.cleanupInstructions.length).toEqual(1);
-    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.signers.length).toEqual(0);
+      // Tx should be fail
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).rejects.toThrow();
+    });
 
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-  });
+    it("resolveOrCreateATA, created before execution, modeIdempotent = true", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
 
-  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata, amount = 0", async () => {
-    const { connection, wallet } = ctx;
+      const expected = getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram);
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        mint,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        ZERO,
+        wallet.publicKey,
+        true
+      );
+      expect(resolved.address.equals(expected)).toBeTruthy();
+      expect(resolved.instructions.length).toEqual(1);
+      expect(resolved.instructions[0].data[0]).toEqual(1); // 1 byte data
 
-    const wrappedSolAccountCreateMethod = "ata";
+      // created before execution
+      await createAssociatedTokenAccount(connection, wallet.payer, mint, wallet.publicKey, undefined, tokenProgram);
+      const accountData = await connection.getAccountInfo(expected);
+      expect(accountData).not.toBeNull();
 
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      NATIVE_MINT,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      ZERO,
-      wallet.publicKey,
-      false,
-      false,
-      wrappedSolAccountCreateMethod,
-    );
+      // Tx should be success even if ATA has been created
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+    });
 
-    expect(resolved.instructions.length).toEqual(1);
-    expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.cleanupInstructions.length).toEqual(1);
-    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.signers.length).toEqual(0);
+    it("resolveOrCreateATAs, created before execution, modeIdempotent = false", async () => {
+      const mints = await Promise.all([createNewMint(ctx, tokenProgram), createNewMint(ctx, tokenProgram), createNewMint(ctx, tokenProgram)]);
 
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-  });
+      // create first ATA
+      await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey, undefined, tokenProgram);
 
-  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = keypair", async () => {
-    const { connection, wallet } = ctx;
+      const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram));
+      const resolved = await resolveOrCreateATAs(
+        connection,
+        wallet.publicKey,
+        mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        wallet.publicKey,
+        false
+      );
+      expect(resolved[0].address.equals(expected[0])).toBeTruthy();
+      expect(resolved[1].address.equals(expected[1])).toBeTruthy();
+      expect(resolved[2].address.equals(expected[2])).toBeTruthy();
+      expect(resolved[0].instructions.length).toEqual(0); // already exists
+      expect(resolved[1].instructions.length).toEqual(1);
+      expect(resolved[2].instructions.length).toEqual(1);
+      expect(resolved[1].instructions[0].data.length).toEqual(0); // no instruction data
+      expect(resolved[2].instructions[0].data.length).toEqual(0); // no instruction data
 
-    const wrappedSolAccountCreateMethod = "keypair";
+      // create second ATA before execution
+      await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey, undefined, tokenProgram);
 
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      NATIVE_MINT,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new BN(LAMPORTS_PER_SOL),
-      wallet.publicKey,
-      false,
-      false,
-      wrappedSolAccountCreateMethod,
-    );
+      const preAccountData = await connection.getMultipleAccountsInfo(expected);
+      expect(preAccountData[0]).not.toBeNull();
+      expect(preAccountData[1]).not.toBeNull();
+      expect(preAccountData[2]).toBeNull();
 
-    expect(resolved.instructions.length).toEqual(2);
-    expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
-    expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.cleanupInstructions.length).toEqual(1);
-    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.signers.length).toEqual(1);
+      // Tx should be fail
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstructions(resolved);
+      await expect(builder.buildAndExecute()).rejects.toThrow();
+    });
 
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-  });
+    it("resolveOrCreateATAs, created before execution, modeIdempotent = true", async () => {
+      const mints = await Promise.all([createNewMint(ctx, tokenProgram), createNewMint(ctx, tokenProgram), createNewMint(ctx, tokenProgram)]);
 
-  it("resolveOrCreateATA, wrappedSolAccountCreateMethod = withSeed", async () => {
-    const { connection, wallet } = ctx;
+      // create first ATA
+      await createAssociatedTokenAccount(connection, wallet.payer, mints[0], wallet.publicKey, undefined, tokenProgram);
 
-    const wrappedSolAccountCreateMethod = "withSeed";
+      const expected = mints.map((mint) => getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram));
 
-    const resolved = await resolveOrCreateATA(
-      connection,
-      wallet.publicKey,
-      NATIVE_MINT,
-      () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
-      new BN(LAMPORTS_PER_SOL),
-      wallet.publicKey,
-      false,
-      false,
-      wrappedSolAccountCreateMethod,
-    );
+      const resolved = await resolveOrCreateATAs(
+        connection,
+        wallet.publicKey,
+        mints.map((mint) => ({ tokenMint: mint, wrappedSolAmountIn: ZERO })),
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        wallet.publicKey,
+        true
+      );
+      expect(resolved[0].address.equals(expected[0])).toBeTruthy();
+      expect(resolved[1].address.equals(expected[1])).toBeTruthy();
+      expect(resolved[2].address.equals(expected[2])).toBeTruthy();
+      expect(resolved[0].instructions.length).toEqual(0); // already exists
+      expect(resolved[1].instructions.length).toEqual(1);
+      expect(resolved[2].instructions.length).toEqual(1);
+      expect(resolved[1].instructions[0].data[0]).toEqual(1); // 1 byte data
+      expect(resolved[2].instructions[0].data[0]).toEqual(1); // 1 byte data
 
-    expect(resolved.instructions.length).toEqual(2);
-    expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
-    expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.cleanupInstructions.length).toEqual(1);
-    expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
-    expect(resolved.signers.length).toEqual(0);
+      // create second ATA before execution
+      await createAssociatedTokenAccount(connection, wallet.payer, mints[1], wallet.publicKey, undefined, tokenProgram);
 
-    const builder = new TransactionBuilder(connection, wallet);
-    builder.addInstruction(resolved);
-    await expect(builder.buildAndExecute()).resolves.toBeTruthy();
-  });
+      const preAccountData = await connection.getMultipleAccountsInfo(expected);
+      expect(preAccountData[0]).not.toBeNull();
+      expect(preAccountData[1]).not.toBeNull();
+      expect(preAccountData[2]).toBeNull();
+
+      // Tx should be success even if second ATA has been created
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstructions(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+
+      const postAccountData = await connection.getMultipleAccountsInfo(expected);
+      expect(postAccountData[0]).not.toBeNull();
+      expect(postAccountData[1]).not.toBeNull();
+      expect(postAccountData[2]).not.toBeNull();
+    });
+
+    it("resolveOrCreateATA, owner changed ATA detected", async () => {
+      // in Token-2022, owner of ATA cannot be changed
+      if (tokenProgram.equals(TOKEN_2022_PROGRAM_ID)) return;
+
+      const anotherWallet = Keypair.generate();
+      const mint = await createNewMint(ctx, tokenProgram);
+
+      const ata = await createAssociatedTokenAccount(
+        connection,
+        wallet.payer,
+        mint,
+        wallet.publicKey,
+        undefined,
+        tokenProgram
+      );
+
+      // should be ok
+      const preOwnerChanged = await resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
+        connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+      );
+      expect(preOwnerChanged.address.equals(ata)).toBeTruthy();
+
+      // owner change
+      await setAuthority(
+        connection,
+        ctx.wallet.payer,
+        ata,
+        wallet.publicKey,
+        2,
+        anotherWallet.publicKey,
+        []
+      );
+
+      // verify that owner have been changed
+      const changed = await getAccount(connection, ata);
+      expect(changed.owner.equals(anotherWallet.publicKey)).toBeTruthy();
+
+      // should be failed
+      const postOwnerChangedPromise = resolveOrCreateATA(connection, wallet.publicKey, mint, () =>
+        connection.getMinimumBalanceForRentExemption(AccountLayout.span)
+      );
+      await expect(postOwnerChangedPromise).rejects.toThrow(/ATA with change of ownership detected/);
+    });
+
+    it("resolveOrCreateATA, allowPDAOwnerAddress = false", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
+
+      const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram); // ATA is one of PDAs
+      const allowPDAOwnerAddress = false;
+
+      try {
+        await resolveOrCreateATA(
+          connection,
+          pda,
+          mint,
+          () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+          ZERO,
+          wallet.publicKey,
+          false,
+          allowPDAOwnerAddress
+        );
+
+        fail("should be failed");
+      } catch (e: any) {
+        expect(e.name).toMatch("TokenOwnerOffCurveError");
+      }
+    });
+
+    it("resolveOrCreateATA, allowPDAOwnerAddress = true", async () => {
+      const mint = await createNewMint(ctx, tokenProgram);
+
+      const pda = getAssociatedTokenAddressSync(mint, wallet.publicKey, undefined, tokenProgram); // ATA is one of PDAs
+      const allowPDAOwnerAddress = true;
+
+      try {
+        await resolveOrCreateATA(
+          connection,
+          pda,
+          mint,
+          () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+          ZERO,
+          wallet.publicKey,
+          false,
+          allowPDAOwnerAddress
+        );
+      } catch (e: any) {
+        fail("should be failed");
+      }
+    });
+
+    it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata", async () => {
+      const { connection, wallet } = ctx;
+
+      const wrappedSolAccountCreateMethod = "ata";
+
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        NATIVE_MINT,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        new BN(LAMPORTS_PER_SOL),
+        wallet.publicKey,
+        false,
+        false,
+        wrappedSolAccountCreateMethod,
+      );
+
+      expect(resolved.instructions.length).toEqual(3);
+      expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.instructions[1].programId.equals(SystemProgram.programId)).toBeTruthy();
+      expect(resolved.instructions[2].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.cleanupInstructions.length).toEqual(1);
+      expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.signers.length).toEqual(0);
+
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+    });
+
+    it("resolveOrCreateATA, wrappedSolAccountCreateMethod = ata, amount = 0", async () => {
+      const { connection, wallet } = ctx;
+
+      const wrappedSolAccountCreateMethod = "ata";
+
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        NATIVE_MINT,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        ZERO,
+        wallet.publicKey,
+        false,
+        false,
+        wrappedSolAccountCreateMethod,
+      );
+
+      expect(resolved.instructions.length).toEqual(1);
+      expect(resolved.instructions[0].programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.cleanupInstructions.length).toEqual(1);
+      expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.signers.length).toEqual(0);
+
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+    });
+
+    it("resolveOrCreateATA, wrappedSolAccountCreateMethod = keypair", async () => {
+      const { connection, wallet } = ctx;
+
+      const wrappedSolAccountCreateMethod = "keypair";
+
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        NATIVE_MINT,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        new BN(LAMPORTS_PER_SOL),
+        wallet.publicKey,
+        false,
+        false,
+        wrappedSolAccountCreateMethod,
+      );
+
+      expect(resolved.instructions.length).toEqual(2);
+      expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
+      expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.cleanupInstructions.length).toEqual(1);
+      expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.signers.length).toEqual(1);
+
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+    });
+
+    it("resolveOrCreateATA, wrappedSolAccountCreateMethod = withSeed", async () => {
+      const { connection, wallet } = ctx;
+
+      const wrappedSolAccountCreateMethod = "withSeed";
+
+      const resolved = await resolveOrCreateATA(
+        connection,
+        wallet.publicKey,
+        NATIVE_MINT,
+        () => connection.getMinimumBalanceForRentExemption(AccountLayout.span),
+        new BN(LAMPORTS_PER_SOL),
+        wallet.publicKey,
+        false,
+        false,
+        wrappedSolAccountCreateMethod,
+      );
+
+      expect(resolved.instructions.length).toEqual(2);
+      expect(resolved.instructions[0].programId.equals(SystemProgram.programId)).toBeTruthy();
+      expect(resolved.instructions[1].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.cleanupInstructions.length).toEqual(1);
+      expect(resolved.cleanupInstructions[0].programId.equals(TOKEN_PROGRAM_ID)).toBeTruthy();
+      expect(resolved.signers.length).toEqual(0);
+
+      const builder = new TransactionBuilder(connection, wallet);
+      builder.addInstruction(resolved);
+      await expect(builder.buildAndExecute()).resolves.toBeTruthy();
+    });
+  }));
 });

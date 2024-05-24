@@ -1,4 +1,4 @@
-import { Mint, getMint } from "@solana/spl-token";
+import { Mint, TOKEN_PROGRAM_ID, getMint } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import {
   BasicSupportedTypes,
@@ -23,7 +23,7 @@ describe("simple-account-fetcher", () => {
   beforeAll(async () => {
     await requestAirdrop(ctx);
     for (let i = 0; i < 10; i++) {
-      testMints.push(await createNewMint(ctx));
+      testMints.push(await createNewMint(ctx, TOKEN_PROGRAM_ID));
     }
   });
 

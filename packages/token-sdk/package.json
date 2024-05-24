@@ -9,8 +9,8 @@
   "types": "dist/index.d.ts",
   "peerDependencies": {
     "@orca-so/common-sdk": "^0.4.0",
-    "@solana/spl-token": "^0.3.8",
-    "@solana/web3.js": "^1.75.0"
+    "@solana/spl-token": "^0.4.1",
+    "@solana/web3.js": "^1.90.0"
   },
   "dependencies": {
     "cross-fetch": "^4.0.0",

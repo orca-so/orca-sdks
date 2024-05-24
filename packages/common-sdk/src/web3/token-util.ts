@@ -1,12 +1,13 @@
 import {
   AccountLayout,
   NATIVE_MINT,
+  NATIVE_MINT_2022,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createCloseAccountInstruction,
   createInitializeAccountInstruction,
   createSyncNativeInstruction,
-  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
@@ -20,6 +21,7 @@ import { Instruction, resolveOrCreateATA } from "../web3";
  */
 export type ResolvedTokenAddressInstruction = {
   address: PublicKey;
+  tokenProgram: PublicKey;
 } & Instruction;
 
 /**
@@ -114,6 +116,7 @@ export class TokenUtil {
     allowPDASourceWallet: boolean = false
   ): Promise<Instruction> {
     invariant(!amount.eq(ZERO), "SendToken transaction must send more than 0 tokens.");
+    invariant(!tokenMint.equals(NATIVE_MINT_2022), "NATIVE_MINT_2022 is not supported.");
 
     // Specifically handle SOL, which is not a spl-token.
     if (tokenMint.equals(NATIVE_MINT)) {
@@ -129,7 +132,11 @@ export class TokenUtil {
       };
     }
 
-    const sourceTokenAccount = getAssociatedTokenAddressSync(tokenMint, sourceWallet, allowPDASourceWallet);
+    const mintAccountInfo = await connection.getAccountInfo(tokenMint);
+    if (mintAccountInfo === null) throw Error("Cannot fetch tokenMint.");
+    const tokenProgram = mintAccountInfo.owner;
+
+    const sourceTokenAccount = getAssociatedTokenAddressSync(tokenMint, sourceWallet, allowPDASourceWallet, tokenProgram);
     const { address: destinationTokenAccount, ...destinationAtaIx } = await resolveOrCreateATA(
       connection,
       destinationWallet,
@@ -141,13 +148,17 @@ export class TokenUtil {
       true
     );
 
-    const transferIx = createTransferCheckedInstruction(
+    const transferIx = await createTransferCheckedWithTransferHookInstruction(
+      connection,
       sourceTokenAccount,
       tokenMint,
       destinationTokenAccount,
       sourceWallet,
       BigInt(amount.toString()),
-      tokenDecimals
+      tokenDecimals,
+      undefined,
+      undefined,
+      tokenProgram
     );
 
     return {
@@ -196,6 +207,7 @@ function createWrappedNativeAccountInstructionWithATA(
 
   return {
     address: tempAccount,
+    tokenProgram: TOKEN_PROGRAM_ID,
     instructions,
     cleanupInstructions: [closeWSOLAccountInstruction],
     signers: [],
@@ -233,6 +245,7 @@ function createWrappedNativeAccountInstructionWithKeypair(
 
   return {
     address: tempAccount.publicKey,
+    tokenProgram: TOKEN_PROGRAM_ID,
     instructions: [createAccountInstruction, initAccountInstruction],
     cleanupInstructions: [closeWSOLAccountInstruction],
     signers: [tempAccount],
@@ -288,6 +301,7 @@ function createWrappedNativeAccountInstructionWithSeed(
 
   return {
     address: tempAccount,
+    tokenProgram: TOKEN_PROGRAM_ID,
     instructions: [createAccountInstruction, initAccountInstruction],
     cleanupInstructions: [closeWSOLAccountInstruction],
     signers: [],
