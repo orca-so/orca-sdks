@@ -1009,6 +1009,16 @@
     "@solana/spl-token-metadata" "^0.1.2"
     buffer "^6.0.3"
 
+"@solana/spl-token@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/@solana/spl-token/-/spl-token-0.4.1.tgz#7302c8052803f63012bd8189d42ca7d74d7917a5"
+  integrity sha512-DEe15GI0l+XLHwtau/3GUwGQJ9YY/VWNE0k/QuXaaGKo4adMZLEAIQUktRc/S2sRqPjvUdR5anZGxQ9p5khWZw==
+  dependencies:
+    "@solana/buffer-layout" "^4.0.0"
+    "@solana/buffer-layout-utils" "^0.2.0"
+    "@solana/spl-token-metadata" "^0.1.2"
+    buffer "^6.0.3"
+
 "@solana/spl-type-length-value@0.1.0":
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/@solana/spl-type-length-value/-/spl-type-length-value-0.1.0.tgz#b5930cf6c6d8f50c7ff2a70463728a4637a2f26b"
