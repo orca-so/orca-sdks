@@ -4,8 +4,6 @@
     "packages/*"
   ],
   "devDependencies": {
-    "@solana/spl-token": "^0.3.11",
-    "@solana/web3.js": "^1.88.0",
     "@types/bn.js": "~5.1.5",
     "@types/decimal.js": "^7.4.0",
     "@types/jest": "^29.5.11",
