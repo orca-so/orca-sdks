@@ -18,14 +18,15 @@ export type RetentionPolicy<T> = ReadonlyMap<ParsableEntity<T>, number>;
 export type SimpleAccountFetchOptions = {
   // Accepted maxAge in milliseconds for a cache entry hit for this account request.
   maxAge?: number;
+  // Timeout in seconds before the RPC call is considered failed.
+  timeoutInSeconds?: number;
 };
 
 // SimpleAccountFetcher is a simple implementation of AccountCache that stores the fetched
 // accounts in memory. If TTL is not provided, it will use TTL defined in the the retention policy
 // for the parser. If that is also not provided, the request will always prefer the cache value.
 export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOptions>
-  implements AccountFetcher<T, FetchOptions>
-{
+  implements AccountFetcher<T, FetchOptions> {
   cache: Map<string, CachedContent<T>> = new Map();
   constructor(readonly connection: Connection, readonly retentionPolicy: RetentionPolicy<T>) {
     this.cache = new Map<string, CachedContent<T>>();
@@ -117,9 +118,9 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     });
   }
 
-  async refreshAll(now: number = Date.now()) {
+  async refreshAll(now: number = Date.now(), timeoutInSeconds?: number) {
     const addresses = Array.from(this.cache.keys());
-    const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, addresses);
+    const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, addresses, timeoutInSeconds);
 
     for (const [key, cachedContent] of this.cache.entries()) {
       const parser = cachedContent.parser;
@@ -151,7 +152,7 @@ export class SimpleAccountFetcher<T, FetchOptions extends SimpleAccountFetchOpti
     // If the addresses list contain accounts in the 1st gMA call as subsequent calls and the gMA returns on different contextSlots,
     // the returned results can be inconsistent and unexpected by the user.
     if (undefinedAccounts.length > 0) {
-      const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, undefinedAccounts);
+      const fetchedAccountsMap = await getMultipleAccountsInMap(this.connection, undefinedAccounts, opts?.timeoutInSeconds);
       undefinedAccounts.forEach((key) => {
         const fetchedEntry = fetchedAccountsMap.get(key);
         const value = parser.parse(AddressUtil.toPubKey(key), fetchedEntry);
