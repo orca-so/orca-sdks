@@ -161,7 +161,8 @@ export async function resolveOrCreateATAs(
       accountRentExempt,
       payer,
       undefined, // use default
-      wrappedSolAccountCreateMethod
+      wrappedSolAccountCreateMethod,
+      allowPDAOwnerAddress
     );
   }
 
