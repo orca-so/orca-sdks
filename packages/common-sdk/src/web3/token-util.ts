@@ -54,6 +54,7 @@ export class TokenUtil {
     payer?: PublicKey,
     unwrapDestination?: PublicKey,
     createAccountMethod: WrappedSolAccountCreateMethod = "keypair",
+    allowPDAOwnerAddress: boolean = false,
   ): ResolvedTokenAddressInstruction {
     const payerKey = payer ?? owner;
     const unwrapDestinationKey = unwrapDestination ?? owner;
@@ -65,7 +66,8 @@ export class TokenUtil {
           amountIn,
           rentExemptLamports,
           payerKey,
-          unwrapDestinationKey
+          unwrapDestinationKey,
+          allowPDAOwnerAddress
         );
       case "keypair":
         return createWrappedNativeAccountInstructionWithKeypair(
@@ -175,8 +177,9 @@ function createWrappedNativeAccountInstructionWithATA(
   _rentExemptLamports: number,
   payerKey: PublicKey,
   unwrapDestinationKey: PublicKey,
+  allowPDAOwnerAddress: boolean = false,
 ): ResolvedTokenAddressInstruction {
-  const tempAccount = getAssociatedTokenAddressSync(NATIVE_MINT, owner);
+  const tempAccount = getAssociatedTokenAddressSync(NATIVE_MINT, owner, allowPDAOwnerAddress);
 
   const instructions: TransactionInstruction[] = [
     createAssociatedTokenAccountIdempotentInstruction(
