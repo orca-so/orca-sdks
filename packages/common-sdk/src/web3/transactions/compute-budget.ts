@@ -6,6 +6,7 @@ export const DEFAULT_PRIORITY_FEE_PERCENTILE = 0.9;
 export const DEFAULT_MAX_PRIORITY_FEE_LAMPORTS = 1000000; // 0.001 SOL
 export const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
+// @deprecated
 export async function estimateComputeBudgetLimit(
   connection: Connection,
   instructions: Instruction[],
@@ -41,6 +42,7 @@ export async function estimateComputeBudgetLimitWithSimulation(
   instructions: Instruction[],
   lookupTableAccounts: AddressLookupTableAccount[] | undefined,
   payer: PublicKey,
+  margin: number,
 ): Promise<number> {
   try {
     const txMainInstructions = instructions.flatMap((instruction) => instruction.instructions);
@@ -55,12 +57,14 @@ export async function estimateComputeBudgetLimitWithSimulation(
 
     const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
 
-    return simulation.value.unitsConsumed ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+    const estUnitConsumed = simulation.value.unitsConsumed ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+    return Math.min(DEFAULT_MAX_COMPUTE_UNIT_LIMIT, Math.ceil(estUnitConsumed * (1 + margin)));
   } catch {
     return DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
   }
 }
 
+// @deprecated
 export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,

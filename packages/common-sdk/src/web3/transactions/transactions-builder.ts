@@ -67,6 +67,7 @@ type ComputeBudgetOption = {
   computePricePercentile?: number;
 } | {
   type: "auto-fixed-priority";
+  computeLimitMargin?: number;
   priorityFeeMicroLamports: number;
 } | {
   type: "fixed-value";
@@ -345,9 +346,10 @@ export class TransactionBuilder {
     }
 
     if (finalComputeBudgetOption.type === "auto-fixed-priority") {
+      const margin = finalComputeBudgetOption.computeLimitMargin ?? 0.1;
       const priorityFeeMicroLamports = finalComputeBudgetOption.priorityFeeMicroLamports;
       const lookupTableAccounts = finalOptions.maxSupportedTransactionVersion === "legacy" ? undefined : finalOptions.lookupTableAccounts;
-      const computeBudgetLimit = await estimateComputeBudgetLimitWithSimulation(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey);
+      const computeBudgetLimit = await estimateComputeBudgetLimitWithSimulation(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey, margin);
       finalComputeBudgetOption = {
         type: "fixed-value",
         priorityFeeMicroLamports,
