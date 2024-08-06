@@ -4,6 +4,7 @@ import { Instruction } from "./types";
 export const MICROLAMPORTS_PER_LAMPORT = 1_000_000;
 export const DEFAULT_PRIORITY_FEE_PERCENTILE = 0.9;
 export const DEFAULT_MAX_PRIORITY_FEE_LAMPORTS = 1000000; // 0.001 SOL
+export const DEFAULT_MIN_PRIORITY_FEE_LAMPORTS = 0; // 0 SOL
 export const DEFAULT_MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 
 export async function estimateComputeBudgetLimit(
