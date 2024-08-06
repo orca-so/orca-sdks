@@ -12,7 +12,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
+import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_MIN_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
 
@@ -63,6 +63,7 @@ type ComputeBudgetOption = {
 } | {
   type: "auto";
   maxPriorityFeeLamports?: number;
+  minPriorityFeeLamports?: number;
   computeLimitMargin?: number;
   computePricePercentile?: number;
 };
@@ -318,7 +319,8 @@ export class TransactionBuilder {
       const percentile = finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
       const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, getLockWritableAccounts(this.instructions), percentile);
       const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
-      const priorityFeeLamports = Math.min(priorityFee, maxPriorityFeeLamports);
+      const minPriorityFeeLamports = finalComputeBudgetOption.minPriorityFeeLamports ?? DEFAULT_MIN_PRIORITY_FEE_LAMPORTS;
+      const priorityFeeLamports = Math.max(Math.min(priorityFee, maxPriorityFeeLamports), minPriorityFeeLamports);
       finalComputeBudgetOption = {
         type: "fixed",
         priorityFeeLamports,
