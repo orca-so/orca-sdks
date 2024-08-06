@@ -12,7 +12,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
+import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, estimateComputeBudgetLimitWithSimulation, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
 
@@ -65,6 +65,13 @@ type ComputeBudgetOption = {
   maxPriorityFeeLamports?: number;
   computeLimitMargin?: number;
   computePricePercentile?: number;
+} | {
+  type: "auto-fixed-priority";
+  priorityFeeMicroLamports: number;
+} | {
+  type: "fixed-value";
+  priorityFeeMicroLamports: number;
+  computeBudgetLimit: number;
 };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
@@ -258,6 +265,17 @@ export class TransactionBuilder {
       ]
     }
 
+    if (computeBudgetOption.type === "fixed-value") {
+      prependInstructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: computeBudgetOption.computeBudgetLimit,
+        }),
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: computeBudgetOption.priorityFeeMicroLamports,
+        })
+      ]
+    }
+
     const allSigners = ix.signers.concat(this.signers);
 
     const recentBlockhash = latestBlockhash;
@@ -324,6 +342,17 @@ export class TransactionBuilder {
         priorityFeeLamports,
         computeBudgetLimit
       };
+    }
+
+    if (finalComputeBudgetOption.type === "auto-fixed-priority") {
+      const priorityFeeMicroLamports = finalComputeBudgetOption.priorityFeeMicroLamports;
+      const lookupTableAccounts = finalOptions.maxSupportedTransactionVersion === "legacy" ? undefined : finalOptions.lookupTableAccounts;
+      const computeBudgetLimit = await estimateComputeBudgetLimitWithSimulation(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey);
+      finalComputeBudgetOption = {
+        type: "fixed-value",
+        priorityFeeMicroLamports,
+        computeBudgetLimit
+      }
     }
     return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash, computeBudgetOption: finalComputeBudgetOption });
   }

@@ -36,6 +36,31 @@ export async function estimateComputeBudgetLimit(
   }
 }
 
+export async function estimateComputeBudgetLimitWithSimulation(
+  connection: Connection,
+  instructions: Instruction[],
+  lookupTableAccounts: AddressLookupTableAccount[] | undefined,
+  payer: PublicKey,
+): Promise<number> {
+  try {
+    const txMainInstructions = instructions.flatMap((instruction) => instruction.instructions);
+    const txCleanupInstruction = instructions.flatMap((instruction) => instruction.cleanupInstructions);
+    const txMessage = new TransactionMessage({
+      recentBlockhash: PublicKey.default.toBase58(),
+      payerKey: payer,
+      instructions: [...txMainInstructions, ...txCleanupInstruction],
+    }).compileToV0Message(lookupTableAccounts);
+
+    const tx = new VersionedTransaction(txMessage);
+
+    const simulation = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
+
+    return simulation.value.unitsConsumed ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+  } catch {
+    return DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
+  }
+}
+
 export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,
