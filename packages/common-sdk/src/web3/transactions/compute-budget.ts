@@ -41,11 +41,12 @@ export async function getPriorityFeeInLamports(
   connection: Connection,
   computeBudgetLimit: number,
   lockedWritableAccounts: PublicKey[],
-  percentile: number = DEFAULT_PRIORITY_FEE_PERCENTILE
+  percentile: number = DEFAULT_PRIORITY_FEE_PERCENTILE,
+  getRecentPrioritizationFees?: (lockedWritableAccounts: PublicKey[]) => Promise<RecentPrioritizationFees[]>
 ): Promise<number> {
-  const recentPriorityFees = await connection.getRecentPrioritizationFees({
+  const recentPriorityFees = await (getRecentPrioritizationFees ? getRecentPrioritizationFees(lockedWritableAccounts) : connection.getRecentPrioritizationFees({
     lockedWritableAccounts,
-  });
+  }));
   const priorityFee = getPriorityFeeSuggestion(recentPriorityFees, percentile);
   return (priorityFee * computeBudgetLimit) / MICROLAMPORTS_PER_LAMPORT;
 }

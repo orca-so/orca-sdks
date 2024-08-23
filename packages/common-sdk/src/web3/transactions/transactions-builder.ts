@@ -4,6 +4,8 @@ import {
   ComputeBudgetProgram,
   Connection,
   PACKET_DATA_SIZE,
+  PublicKey,
+  RecentPrioritizationFees,
   SendOptions,
   Signer,
   Transaction,
@@ -12,7 +14,16 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { Wallet } from "../wallet";
-import { DEFAULT_MAX_COMPUTE_UNIT_LIMIT, DEFAULT_MAX_PRIORITY_FEE_LAMPORTS, DEFAULT_MIN_PRIORITY_FEE_LAMPORTS, DEFAULT_PRIORITY_FEE_PERCENTILE, MICROLAMPORTS_PER_LAMPORT, estimateComputeBudgetLimit, getLockWritableAccounts, getPriorityFeeInLamports } from "./compute-budget";
+import {
+  DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
+  DEFAULT_MAX_PRIORITY_FEE_LAMPORTS,
+  DEFAULT_MIN_PRIORITY_FEE_LAMPORTS,
+  DEFAULT_PRIORITY_FEE_PERCENTILE,
+  MICROLAMPORTS_PER_LAMPORT,
+  estimateComputeBudgetLimit,
+  getLockWritableAccounts,
+  getPriorityFeeInLamports,
+} from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
 
@@ -54,19 +65,25 @@ type BaseBuildOption = {
   blockhashCommitment: Commitment;
 };
 
-type ComputeBudgetOption = {
-  type: "none";
-} | {
-  type: "fixed";
-  priorityFeeLamports: number;
-  computeBudgetLimit?: number;
-} | {
-  type: "auto";
-  maxPriorityFeeLamports?: number;
-  minPriorityFeeLamports?: number;
-  computeLimitMargin?: number;
-  computePricePercentile?: number;
-};
+type ComputeBudgetOption =
+  | {
+    type: "none";
+  }
+  | {
+    type: "fixed";
+    priorityFeeLamports: number;
+    computeBudgetLimit?: number;
+  }
+  | {
+    type: "auto";
+    maxPriorityFeeLamports?: number;
+    minPriorityFeeLamports?: number;
+    computeLimitMargin?: number;
+    computePricePercentile?: number;
+    getPriorityFeePerUnit?: (
+      lockedWritableAccounts: PublicKey[],
+    ) => Promise<RecentPrioritizationFees[]>;
+  };
 
 type SyncBuildOptions = BuildOptions & Required<BaseBuildOption>;
 
@@ -106,7 +123,7 @@ export class TransactionBuilder {
   constructor(
     readonly connection: Connection,
     readonly wallet: Wallet,
-    defaultOpts?: TransactionBuilderOptions
+    defaultOpts?: TransactionBuilderOptions,
   ) {
     this.instructions = [];
     this.signers = [];
@@ -223,26 +240,24 @@ export class TransactionBuilder {
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
    */
   buildSync(options: SyncBuildOptions): TransactionPayload {
-    const {
-      latestBlockhash,
-      maxSupportedTransactionVersion,
-      computeBudgetOption
-    } = options;
+    const { latestBlockhash, maxSupportedTransactionVersion, computeBudgetOption } = options;
 
     const ix = this.compressIx(true);
     let prependInstructions: TransactionInstruction[] = [];
 
     if (computeBudgetOption.type === "fixed") {
       const computeLimit = computeBudgetOption.computeBudgetLimit ?? DEFAULT_MAX_COMPUTE_UNIT_LIMIT;
-      const microLamports = Math.floor((computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit);
+      const microLamports = Math.floor(
+        (computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit,
+      );
       prependInstructions = [
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
         }),
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports,
-        })
-      ]
+        }),
+      ];
     }
 
     if (computeBudgetOption.type === "auto") {
@@ -255,8 +270,8 @@ export class TransactionBuilder {
         }),
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: 0,
-        })
-      ]
+        }),
+      ];
     }
 
     const allSigners = ix.signers.concat(this.signers);
@@ -314,20 +329,45 @@ export class TransactionBuilder {
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
     if (finalComputeBudgetOption.type === "auto") {
       const margin = finalComputeBudgetOption.computeLimitMargin ?? 0.1;
-      const lookupTableAccounts = finalOptions.maxSupportedTransactionVersion === "legacy" ? undefined : finalOptions.lookupTableAccounts;
-      const computeBudgetLimit = await estimateComputeBudgetLimit(this.connection, this.instructions, lookupTableAccounts, this.wallet.publicKey, margin);
-      const percentile = finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
-      const priorityFee = await getPriorityFeeInLamports(this.connection, computeBudgetLimit, getLockWritableAccounts(this.instructions), percentile);
-      const maxPriorityFeeLamports = finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
-      const minPriorityFeeLamports = finalComputeBudgetOption.minPriorityFeeLamports ?? DEFAULT_MIN_PRIORITY_FEE_LAMPORTS;
-      const priorityFeeLamports = Math.max(Math.min(priorityFee, maxPriorityFeeLamports), minPriorityFeeLamports);
+      const lookupTableAccounts =
+        finalOptions.maxSupportedTransactionVersion === "legacy"
+          ? undefined
+          : finalOptions.lookupTableAccounts;
+      const computeBudgetLimit = await estimateComputeBudgetLimit(
+        this.connection,
+        this.instructions,
+        lookupTableAccounts,
+        this.wallet.publicKey,
+        margin,
+      );
+      const percentile =
+        finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
+      const priorityFee = await getPriorityFeeInLamports(
+        this.connection,
+        computeBudgetLimit,
+        getLockWritableAccounts(this.instructions),
+        percentile,
+        finalComputeBudgetOption.getPriorityFeePerUnit,
+      );
+      const maxPriorityFeeLamports =
+        finalComputeBudgetOption.maxPriorityFeeLamports ?? DEFAULT_MAX_PRIORITY_FEE_LAMPORTS;
+      const minPriorityFeeLamports =
+        finalComputeBudgetOption.minPriorityFeeLamports ?? DEFAULT_MIN_PRIORITY_FEE_LAMPORTS;
+      const priorityFeeLamports = Math.max(
+        Math.min(priorityFee, maxPriorityFeeLamports),
+        minPriorityFeeLamports,
+      );
       finalComputeBudgetOption = {
         type: "fixed",
         priorityFeeLamports,
-        computeBudgetLimit
+        computeBudgetLimit,
       };
     }
-    return this.buildSync({ ...finalOptions, latestBlockhash: recentBlockhash, computeBudgetOption: finalComputeBudgetOption });
+    return this.buildSync({
+      ...finalOptions,
+      latestBlockhash: recentBlockhash,
+      computeBudgetOption: finalComputeBudgetOption,
+    });
   }
 
   /**
@@ -340,7 +380,7 @@ export class TransactionBuilder {
   async buildAndExecute(
     options?: Partial<BuildOptions>,
     sendOptions?: Partial<SendOptions>,
-    confirmCommitment?: Commitment
+    confirmCommitment?: Commitment,
   ): Promise<string> {
     const sendOpts = { ...this.opts.defaultSendOption, ...sendOptions };
     const btx = await this.build(options);
@@ -365,7 +405,7 @@ export class TransactionBuilder {
         signature: txId,
         ...btx.recentBlockhash,
       },
-      resolvedConfirmCommitment
+      resolvedConfirmCommitment,
     );
 
     const confirmTxErr = result.value.err;
@@ -383,7 +423,7 @@ export class TransactionBuilder {
  * @returns True if the transaction is a versioned transaction.
  */
 export const isVersionedTransaction = (
-  tx: Transaction | VersionedTransaction
+  tx: Transaction | VersionedTransaction,
 ): tx is VersionedTransaction => {
   return "version" in tx;
 };
