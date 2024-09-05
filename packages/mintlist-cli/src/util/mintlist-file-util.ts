@@ -112,7 +112,7 @@ export class MintlistFileUtil {
   }
 
   public static validOverridesName(name: string): boolean {
-    return name === "overrides.json";
+    return /^([a-zA-Z]+\.)?overrides\.json$/.test(name);
   }
 
   public static writeJsonSync(filePath: string, obj: any) {
