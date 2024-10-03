@@ -315,6 +315,53 @@ export class TransactionBuilder {
   }
 
   /**
+   * Estimates the fee for this transaction
+   * @param getPriorityFeePerUnit - A function to get the priority fee per unit
+   * @param computeLimitMargin - The margin for the compute budget limit
+   * @param selectionPercentile - The percentile to use when calculating the priority fee
+   * @param lookupTableAccounts - The lookup table accounts that will be used in the transaction
+   * @returns An object containing the estimated values for consumed compute units, priority fee per unit in lamports, and the total priority fee in lamports
+   */
+  async estimateFee(
+    getPriorityFeePerUnit?: (
+      lockedWritableAccounts: PublicKey[],
+    ) => Promise<RecentPrioritizationFees[]>,
+    computeLimitMargin?: number,
+    selectionPercentile?: number,
+    lookupTableAccounts?: AddressLookupTableAccount[],
+  ) {
+    const estConsumedComputeUnits = await estimateComputeBudgetLimit(
+      this.connection,
+      this.instructions,
+      lookupTableAccounts,
+      this.wallet.publicKey,
+      computeLimitMargin ?? 0.1,
+    );
+
+    const lockedWritableAccounts = getLockWritableAccounts(this.instructions);
+
+    const estPriorityFeePerUnitInLamports = await (getPriorityFeePerUnit
+      ? getPriorityFeePerUnit(lockedWritableAccounts)
+      : this.connection.getRecentPrioritizationFees({
+        lockedWritableAccounts,
+      }));
+
+    const estPriorityFeeInLamports = await getPriorityFeeInLamports(
+      this.connection,
+      estConsumedComputeUnits,
+      lockedWritableAccounts,
+      selectionPercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE,
+      getPriorityFeePerUnit,
+    );
+
+    return {
+      estConsumedComputeUnits,
+      estPriorityFeePerUnitInLamports,
+      estPriorityFeeInLamports,
+    };
+  }
+
+  /**
    * Constructs a transaction payload with the gathered instructions
    * @param userOptions - Options to override the default build options
    * @returns a TransactionPayload object that can be excuted or agregated into other transactions
