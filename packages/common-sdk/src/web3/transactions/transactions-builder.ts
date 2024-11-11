@@ -8,6 +8,7 @@ import {
   RecentPrioritizationFees,
   SendOptions,
   Signer,
+  SystemProgram,
   Transaction,
   TransactionInstruction,
   TransactionMessage,
@@ -26,6 +27,7 @@ import {
 } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
+import { getJitoTipAddress } from "./jito-tip";
 
 /**
   Build options when building a transaction using TransactionBuilder
@@ -73,11 +75,13 @@ type ComputeBudgetOption =
     type: "fixed";
     priorityFeeLamports: number;
     computeBudgetLimit?: number;
+    jitoTipLamports?: number;
   }
   | {
     type: "auto";
     maxPriorityFeeLamports?: number;
     minPriorityFeeLamports?: number;
+    jitoTipLamports?: number;
     computeLimitMargin?: number;
     computePricePercentile?: number;
     getPriorityFeePerUnit?: (
@@ -250,6 +254,7 @@ export class TransactionBuilder {
       const microLamports = Math.floor(
         (computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit,
       );
+
       prependInstructions = [
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
@@ -258,6 +263,15 @@ export class TransactionBuilder {
           microLamports,
         }),
       ];
+      if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
+        prependInstructions.push(
+          SystemProgram.transfer({
+            fromPubkey: this.wallet.publicKey,
+            toPubkey: getJitoTipAddress(),
+            lamports: computeBudgetOption.jitoTipLamports,
+          }),
+        );
+      }
     }
 
     if (computeBudgetOption.type === "auto") {
@@ -272,6 +286,15 @@ export class TransactionBuilder {
           microLamports: 0,
         }),
       ];
+      if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
+        prependInstructions.push(
+          SystemProgram.transfer({
+            fromPubkey: this.wallet.publicKey,
+            toPubkey: getJitoTipAddress(),
+            lamports: computeBudgetOption.jitoTipLamports,
+          }),
+        );
+      }
     }
 
     const allSigners = ix.signers.concat(this.signers);
@@ -408,6 +431,7 @@ export class TransactionBuilder {
         type: "fixed",
         priorityFeeLamports,
         computeBudgetLimit,
+        jitoTipLamports: finalComputeBudgetOption.jitoTipLamports,
       };
     }
     return this.buildSync({
