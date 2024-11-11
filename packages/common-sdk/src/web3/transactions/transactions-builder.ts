@@ -254,12 +254,8 @@ export class TransactionBuilder {
       const microLamports = Math.floor(
         (computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit,
       );
+
       prependInstructions = [
-        SystemProgram.transfer({
-          fromPubkey: this.wallet.publicKey,
-          toPubkey: getJitoTipAddress(),
-          lamports: computeBudgetOption.jitoTipLamports ?? 0,
-        }),
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
         }),
@@ -267,6 +263,15 @@ export class TransactionBuilder {
           microLamports,
         }),
       ];
+      if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
+        prependInstructions.push(
+          SystemProgram.transfer({
+            fromPubkey: this.wallet.publicKey,
+            toPubkey: getJitoTipAddress(),
+            lamports: computeBudgetOption.jitoTipLamports,
+          }),
+        );
+      }
     }
 
     if (computeBudgetOption.type === "auto") {
@@ -274,11 +279,6 @@ export class TransactionBuilder {
       // just use the use 0 priority budget and default compute budget.
       // This should only be happening for calucling the tx size so it should be fine.
       prependInstructions = [
-        SystemProgram.transfer({
-          fromPubkey: this.wallet.publicKey,
-          toPubkey: getJitoTipAddress(),
-          lamports: 0,
-        }),
         ComputeBudgetProgram.setComputeUnitLimit({
           units: DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
         }),
@@ -286,6 +286,15 @@ export class TransactionBuilder {
           microLamports: 0,
         }),
       ];
+      if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
+        prependInstructions.push(
+          SystemProgram.transfer({
+            fromPubkey: this.wallet.publicKey,
+            toPubkey: getJitoTipAddress(),
+            lamports: computeBudgetOption.jitoTipLamports,
+          }),
+        );
+      }
     }
 
     const allSigners = ix.signers.concat(this.signers);
