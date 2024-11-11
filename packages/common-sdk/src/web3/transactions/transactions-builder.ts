@@ -8,6 +8,7 @@ import {
   RecentPrioritizationFees,
   SendOptions,
   Signer,
+  SystemProgram,
   Transaction,
   TransactionInstruction,
   TransactionMessage,
@@ -26,6 +27,7 @@ import {
 } from "./compute-budget";
 import { MEASUREMENT_BLOCKHASH } from "./constants";
 import { Instruction, TransactionPayload } from "./types";
+import { getJitoTipAddress } from "./jito-tip";
 
 /**
   Build options when building a transaction using TransactionBuilder
@@ -73,11 +75,13 @@ type ComputeBudgetOption =
     type: "fixed";
     priorityFeeLamports: number;
     computeBudgetLimit?: number;
+    jitoTipLamports?: number;
   }
   | {
     type: "auto";
     maxPriorityFeeLamports?: number;
     minPriorityFeeLamports?: number;
+    jitoTipLamports?: number;
     computeLimitMargin?: number;
     computePricePercentile?: number;
     getPriorityFeePerUnit?: (
@@ -251,6 +255,11 @@ export class TransactionBuilder {
         (computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit,
       );
       prependInstructions = [
+        SystemProgram.transfer({
+          fromPubkey: this.wallet.publicKey,
+          toPubkey: getJitoTipAddress(),
+          lamports: computeBudgetOption.jitoTipLamports ?? 0,
+        }),
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
         }),
@@ -265,6 +274,11 @@ export class TransactionBuilder {
       // just use the use 0 priority budget and default compute budget.
       // This should only be happening for calucling the tx size so it should be fine.
       prependInstructions = [
+        SystemProgram.transfer({
+          fromPubkey: this.wallet.publicKey,
+          toPubkey: getJitoTipAddress(),
+          lamports: 0,
+        }),
         ComputeBudgetProgram.setComputeUnitLimit({
           units: DEFAULT_MAX_COMPUTE_UNIT_LIMIT,
         }),
@@ -408,6 +422,7 @@ export class TransactionBuilder {
         type: "fixed",
         priorityFeeLamports,
         computeBudgetLimit,
+        jitoTipLamports: finalComputeBudgetOption.jitoTipLamports,
       };
     }
     return this.buildSync({
