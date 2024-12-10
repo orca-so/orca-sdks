@@ -255,15 +255,15 @@ export class TransactionBuilder {
         (computeBudgetOption.priorityFeeLamports * MICROLAMPORTS_PER_LAMPORT) / computeLimit,
       );
 
+      prependInstructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: computeLimit,
+        }),
+      ];
       if (microLamports > 0) {
-        prependInstructions = [
-          ComputeBudgetProgram.setComputeUnitLimit({
-            units: computeLimit,
-          }),
-          ComputeBudgetProgram.setComputeUnitPrice({
-            microLamports,
-          }),
-        ];
+        prependInstructions.push(ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports,
+        }));
       }
       if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
         prependInstructions.push(
@@ -399,25 +399,20 @@ export class TransactionBuilder {
       recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
     }
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
-    let margin = 0.1;
-
-    if (finalComputeBudgetOption.type === "auto") {
-      margin = finalComputeBudgetOption.computeLimitMargin ?? margin;
-    }
 
     const lookupTableAccounts =
         finalOptions.maxSupportedTransactionVersion === "legacy"
           ? undefined
           : finalOptions.lookupTableAccounts;
+
+    if (finalComputeBudgetOption.type === "auto") {
       const computeBudgetLimit = await estimateComputeBudgetLimit(
         this.connection,
         this.instructions,
         lookupTableAccounts,
         this.wallet.publicKey,
-        margin,
+        finalComputeBudgetOption.computeLimitMargin ?? 0.1,
       );
-
-    if (finalComputeBudgetOption.type === "auto") {
       const percentile =
         finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
       const priorityFee = await getPriorityFeeInLamports(
@@ -441,10 +436,17 @@ export class TransactionBuilder {
         computeBudgetLimit,
         jitoTipLamports: finalComputeBudgetOption.jitoTipLamports,
       };
-    } else if (finalComputeBudgetOption.type === "fixed") {
+    } else if (finalComputeBudgetOption.type === "fixed" && finalComputeBudgetOption.computeBudgetLimit === undefined) {
+      const computeBudgetLimit = await estimateComputeBudgetLimit(
+        this.connection,
+        this.instructions,
+        lookupTableAccounts,
+        this.wallet.publicKey,
+        0.1,
+      );
       finalComputeBudgetOption = {
         ...finalComputeBudgetOption,
-        computeBudgetLimit: finalComputeBudgetOption.computeBudgetLimit ?? computeBudgetLimit,
+        computeBudgetLimit,
       };
     }
     return this.buildSync({
