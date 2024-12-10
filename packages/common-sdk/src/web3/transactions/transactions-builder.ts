@@ -259,10 +259,12 @@ export class TransactionBuilder {
         ComputeBudgetProgram.setComputeUnitLimit({
           units: computeLimit,
         }),
-        ComputeBudgetProgram.setComputeUnitPrice({
-          microLamports,
-        }),
       ];
+      if (microLamports > 0) {
+        prependInstructions.push(ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports,
+        }));
+      }
       if (computeBudgetOption.jitoTipLamports && computeBudgetOption.jitoTipLamports > 0) {
         prependInstructions.push(
           SystemProgram.transfer({
@@ -397,18 +399,19 @@ export class TransactionBuilder {
       recentBlockhash = await this.connection.getLatestBlockhash(blockhashCommitment);
     }
     let finalComputeBudgetOption = computeBudgetOption ?? { type: "none" };
-    if (finalComputeBudgetOption.type === "auto") {
-      const margin = finalComputeBudgetOption.computeLimitMargin ?? 0.1;
-      const lookupTableAccounts =
+
+    const lookupTableAccounts =
         finalOptions.maxSupportedTransactionVersion === "legacy"
           ? undefined
           : finalOptions.lookupTableAccounts;
+
+    if (finalComputeBudgetOption.type === "auto") {
       const computeBudgetLimit = await estimateComputeBudgetLimit(
         this.connection,
         this.instructions,
         lookupTableAccounts,
         this.wallet.publicKey,
-        margin,
+        finalComputeBudgetOption.computeLimitMargin ?? 0.1,
       );
       const percentile =
         finalComputeBudgetOption.computePricePercentile ?? DEFAULT_PRIORITY_FEE_PERCENTILE;
@@ -432,6 +435,18 @@ export class TransactionBuilder {
         priorityFeeLamports,
         computeBudgetLimit,
         jitoTipLamports: finalComputeBudgetOption.jitoTipLamports,
+      };
+    } else if (finalComputeBudgetOption.type === "fixed" && finalComputeBudgetOption.computeBudgetLimit === undefined) {
+      const computeBudgetLimit = await estimateComputeBudgetLimit(
+        this.connection,
+        this.instructions,
+        lookupTableAccounts,
+        this.wallet.publicKey,
+        0.1,
+      );
+      finalComputeBudgetOption = {
+        ...finalComputeBudgetOption,
+        computeBudgetLimit,
       };
     }
     return this.buildSync({
