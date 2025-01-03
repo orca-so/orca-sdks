@@ -7,6 +7,13 @@ type OrcaLookupTableModel = {
   addresses: string[];
 };
 
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+type CacheEntry<T> = {
+  value: T;
+  timestamp: number;
+};
+
 /**
  * Orca's implementation of LookupTableFetcher.
  *
@@ -15,12 +22,20 @@ type OrcaLookupTableModel = {
  */
 export class OrcaLookupTableFetcher implements LookupTableFetcher {
   // TODO: Cached values here need an invalidation path to prevent stale data
-  private resolvedAltCache: { [key: string]: AddressLookupTableAccount } = {};
-  private localLutCache: { [key: string]: LookupTable } = {};
-  private localCacheMiss: Set<string> = new Set();
+  private resolvedAltCache: { [key: string]: CacheEntry<AddressLookupTableAccount> } = {};
+  private localLutCache: { [key: string]: CacheEntry<LookupTable> } = {};
+  private localCacheMiss: { [key: string]: number } = {};
   private reverseAddressIndex: { [key: string]: Set<string> } = {};
 
-  constructor(readonly server: AxiosInstance, readonly connection: Connection) { }
+  constructor(
+    readonly server: AxiosInstance,
+    readonly connection: Connection,
+    private cacheTTL: number = DEFAULT_CACHE_TTL
+  ) { }
+
+  private isCacheValid(timestamp: number): boolean {
+    return Date.now() - timestamp < this.cacheTTL;
+  }
 
   /**
    * Query the Orca server for lookup tables for the given addresses and load it into cache.
@@ -37,13 +52,14 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
     let allMatched = true;
     for (let i = 0; i < addresses.length; i++) {
       const matched = matchedIndex[i];
-      if (matched == null && !this.localCacheMiss.has(addresses[i].toString())) {
+      const hasMiss = this.localCacheMiss[addresses[i].toString()] && this.isCacheValid(this.localCacheMiss[addresses[i].toString()]);
+      if (matched == null && !hasMiss) {
         allMatched = false;
         break;
       }
     }
 
-    // If all are matched or previously missed, use the cache
+    // If all are matched or previously missed (and cache is valid), use the cache
     if (allMatched) {
       const allLuts = [];
       for (let i = 0; i < matchedIndex.length; i++) {
@@ -53,7 +69,16 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
         }
       }
       const lutSet = new Set(allLuts);
-      return Array.from(lutSet).map((lut) => this.localLutCache[lut]);
+      const validLuts = Array.from(lutSet)
+        .map((lut) => {
+          const cached = this.localLutCache[lut];
+          return cached && this.isCacheValid(cached.timestamp) ? cached.value : null;
+        })
+        .filter((lut): lut is LookupTable => lut !== null);
+      
+      if (validLuts.length === lutSet.size) {
+        return validLuts;
+      }
     }
 
     // Otherwise, lookup all addresses from the server, and update the cache
@@ -92,13 +117,17 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
     return (
       await Promise.all(
         luts.map(async (lut) => {
-          if (this.resolvedAltCache[lut.address]) {
-            return Promise.resolve(this.resolvedAltCache[lut.address]);
+          const cached = this.resolvedAltCache[lut.address];
+          if (cached && this.isCacheValid(cached.timestamp)) {
+            return Promise.resolve(cached.value);
           } else {
             const alt = (await this.connection.getAddressLookupTable(new PublicKey(lut.address)))
               .value;
             if (alt != null) {
-              this.resolvedAltCache[lut.address] = alt;
+              this.resolvedAltCache[lut.address] = {
+                value: alt,
+                timestamp: Date.now()
+              };
             }
             return alt;
           }
@@ -108,10 +137,15 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
   }
 
   private updateCache(addresses: PublicKey[], lookupTables: LookupTable[]) {
+    const now = Date.now();
+    
     // If we find lookup tables, update local caches
     for (const lut of lookupTables) {
       const { address, containedAddresses } = lut;
-      this.localLutCache[address] = lut;
+      this.localLutCache[address] = {
+        value: lut,
+        timestamp: now
+      };
 
       // Create a reverse index from contained address => lookupTable
       for (const containedAddr of containedAddresses) {
@@ -127,7 +161,7 @@ export class OrcaLookupTableFetcher implements LookupTableFetcher {
     // For each original address, if no corresponding lookup table, add a miss
     for (const addr of addresses) {
       if (!this.reverseAddressIndex[addr.toString()]) {
-        this.localCacheMiss.add(addr.toString());
+        this.localCacheMiss[addr.toString()] = now;
       }
     }
   }
